@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://b57hgcl5pg74n"]
+
+[ext_resource type="Script" uid="uid://c34sbs57innnq" path="res://scripts/player/Player.cs" id="1_8afob"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_rbs5v"]
+radius = 16.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rbs5v"]
+size = Vector2(32, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_a3pup"]
+size = Vector2(60, 60)
+
+[node name="Player" type="CharacterBody2D" unique_id=1812092413]
+script = ExtResource("1_8afob")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1201994955]
+shape = SubResource("CircleShape2D_rbs5v")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=427269955]
+polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+uv = PackedVector2Array(-27.014008, -14.799995, -27.014008, -14.799995, 16.985992, -14.799995, 16.985992, 17.199997, -27.813995, 17.199997)
+
+[node name="Hurtbox" type="Area2D" parent="." unique_id=928365173 groups=["player_hurtbox"]]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=741564713]
+shape = SubResource("RectangleShape2D_rbs5v")
+
+[node name="AttackHitbox" type="Area2D" parent="." unique_id=371309048]
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=1009826854]
+shape = SubResource("RectangleShape2D_a3pup")

@@ -1,0 +1,50 @@
+[gd_scene format=3 uid="uid://j68a0qk11qt3"]
+
+[ext_resource type="PackedScene" uid="uid://b57hgcl5pg74n" path="res://scenes/player/player.tscn" id="1_iuonh"]
+[ext_resource type="PackedScene" uid="uid://cxgnjk63yygny" path="res://scenes/enemy/enemy.tscn" id="2_k2fmo"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rbs5v"]
+size = Vector2(1152, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_xh81e"]
+size = Vector2(1152, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_sqsr3"]
+size = Vector2(32, 648)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vedpg"]
+size = Vector2(32, 648)
+
+[node name="Main" type="Node2D" unique_id=798613415]
+
+[node name="Arena" type="StaticBody2D" parent="." unique_id=874272201]
+
+[node name="TopWall" type="StaticBody2D" parent="Arena" unique_id=664883347]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/TopWall" unique_id=1321972926]
+position = Vector2(576, 16)
+shape = SubResource("RectangleShape2D_rbs5v")
+
+[node name="BottomWall" type="StaticBody2D" parent="Arena" unique_id=980297138]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/BottomWall" unique_id=459726466]
+position = Vector2(576, 632)
+shape = SubResource("RectangleShape2D_xh81e")
+
+[node name="LeftWall" type="StaticBody2D" parent="Arena" unique_id=2099681699]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/LeftWall" unique_id=971331929]
+position = Vector2(16, 324)
+shape = SubResource("RectangleShape2D_sqsr3")
+
+[node name="RightWall" type="StaticBody2D" parent="Arena" unique_id=581739874]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/RightWall" unique_id=1179849449]
+position = Vector2(1136, 324)
+shape = SubResource("RectangleShape2D_vedpg")
+
+[node name="Player" parent="." unique_id=1812092413 groups=["player", "player_hurtbox"] instance=ExtResource("1_iuonh")]
+position = Vector2(576, 324)
+
+[node name="Enemy" parent="." unique_id=981061532 groups=["enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
+position = Vector2(800, 324)
