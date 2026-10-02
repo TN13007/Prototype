@@ -29,6 +29,7 @@ project/assembly_name="Prototype"
 player=""
 player_hurtbox=""
 enemy_hurtbox=""
+enemy=""
 
 [input]
 

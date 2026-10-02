@@ -17,6 +17,7 @@ public partial class Enemy : CharacterBody2D
     }
 
     private EnemyState state = EnemyState.Idle;
+    public bool IsIdle => state == EnemyState.Idle;
     private float stateTimer;
     private Vector2 attackDirection;
 
@@ -126,15 +127,6 @@ public partial class Enemy : CharacterBody2D
         telegraphSound.Play();
 
         GD.Print("Enemy: TELEGRAPH");
-    }
-    public override void _Input(InputEvent @event)
-    {
-        if (@event is InputEventKey keyEvent &&
-            keyEvent.Pressed &&
-            keyEvent.Keycode == Key.Space)
-        {
-            StartAttack();
-        }
     }
     public override void _Draw()
     {

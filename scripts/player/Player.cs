@@ -183,6 +183,7 @@ public partial class Player : CharacterBody2D
         }
 
         hp -= damage;
+        hp = Mathf.Max(hp, 0);
 
         hitFlashTimer = 0.1f;
 

@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://b57hgcl5pg74n" path="res://scenes/player/player.tscn" id="1_iuonh"]
 [ext_resource type="PackedScene" uid="uid://cxgnjk63yygny" path="res://scenes/enemy/enemy.tscn" id="2_k2fmo"]
+[ext_resource type="Script" uid="uid://eqqkwh7qkt6n" path="res://scripts/CombatDirector.cs" id="3_k2fmo"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rbs5v"]
 size = Vector2(1152, 32)
@@ -46,5 +47,14 @@ shape = SubResource("RectangleShape2D_vedpg")
 [node name="Player" parent="." unique_id=1812092413 groups=["player", "player_hurtbox"] instance=ExtResource("1_iuonh")]
 position = Vector2(576, 324)
 
-[node name="Enemy" parent="." unique_id=981061532 groups=["enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
+[node name="CombatDirector" type="Node" parent="." unique_id=1806689932]
+script = ExtResource("3_k2fmo")
+
+[node name="Enemy2" parent="." unique_id=54506170 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
+position = Vector2(313, 453)
+
+[node name="Enemy3" parent="." unique_id=1152471905 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
+position = Vector2(688, 458)
+
+[node name="Enemy" parent="." unique_id=981061532 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
 position = Vector2(800, 324)
