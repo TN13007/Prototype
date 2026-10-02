@@ -10,6 +10,7 @@ public partial class CombatDirector : Node
 
     private float startTimer;
     private float checkTimer;
+    private int nextEnemyIndex = 0;
 
     public override void _Ready()
     {
@@ -45,21 +46,25 @@ public partial class CombatDirector : Node
         if (enemies.Count == 0)
             return;
 
-        // Không cho enemy mới attack nếu vẫn còn
-        // enemy đang trong Telegraph / Attack / Recovery.
         foreach (Node node in enemies)
         {
             if (node is Enemy enemy && !enemy.IsIdle)
                 return;
         }
 
-        foreach (Node node in enemies)
+        int count = enemies.Count;
+
+        for (int i = 0; i <count; i++)
         {
-            if (node is Enemy enemy && enemy.IsIdle)
+            int index = (nextEnemyIndex + i) % count;
+
+            if(enemies[index] is Enemy enemy && enemy.IsIdle)
             {
                 enemy.StartAttack();
 
                 GD.Print("DIRECTOR: START ENEMY ATTACK");
+
+                nextEnemyIndex = (index + 1) % count;
 
                 return;
             }
