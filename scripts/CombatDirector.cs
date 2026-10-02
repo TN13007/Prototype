@@ -2,6 +2,7 @@ using Godot;
 
 public partial class CombatDirector : Node
 {
+    private Scenario[] scenarios;
     private Scenario currentScenario;
     private Batch currentBatch;
 
@@ -34,24 +35,69 @@ public partial class CombatDirector : Node
             batchEnemies[i] = enemies[i] as Enemy;
         }
 
-        Batch[] batches =
+        scenarios = new Scenario[]
         {
-            new Batch(
-                BatchPattern.Single,
-                batchEnemies,
-                2f,
-                0.6f
+            new Scenario(
+                new Batch[]
+                {
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        2f,
+                        0.6f
+                    ),
+
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        2f,
+                        0.6f
+                    ),
+                }
             ),
 
-            new Batch(
-                BatchPattern.Single,
-                batchEnemies,
-                2f,
-                0.6f
+            new Scenario(
+                new Batch[]
+                {
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        1.5f,
+                        0.4f
+                    ),
+
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        3f,
+                        0.8f
+                    )
+                }
+            ),
+
+            new Scenario(
+                new Batch[]
+                {
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        3f,
+                        0.3f
+                    ),
+
+                    new Batch(
+                        BatchPattern.Single,
+                        batchEnemies,
+                        1.5f,
+                        1f
+                    )
+                }
             )
         };
 
-        currentScenario = new Scenario(batches);
+        currentScenario = scenarios[2];
+        int scenarioIndex = 2;
+        GD.Print($"DIRECTOR: SCENARIO {scenarioIndex + 1} START");
 
         currentBatchIndex = 0;
         currentBatch = currentScenario.Batches[currentBatchIndex];
