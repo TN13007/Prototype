@@ -2,7 +2,7 @@ using Godot;
 
 public partial class CombatDirector : Node
 {
-    private Batch[] batches;
+    private Scenario currentScenario;
     private Batch currentBatch;
 
     private int currentBatchIndex;
@@ -34,7 +34,7 @@ public partial class CombatDirector : Node
             batchEnemies[i] = enemies[i] as Enemy;
         }
 
-        batches = new Batch[]
+        Batch[] batches =
         {
             new Batch(
                 BatchPattern.Single,
@@ -51,8 +51,10 @@ public partial class CombatDirector : Node
             )
         };
 
+        currentScenario = new Scenario(batches);
+
         currentBatchIndex = 0;
-        currentBatch = batches[currentBatchIndex];
+        currentBatch = currentScenario.Batches[currentBatchIndex];
 
         batchTimer = currentBatch.Duration;
 
@@ -147,7 +149,7 @@ public partial class CombatDirector : Node
 
         currentBatchIndex++;
 
-        if (currentBatchIndex >= batches.Length)
+        if (currentBatchIndex >= currentScenario.Batches.Length)
         {
             currentBatch = null;
             state = DirectorState.Finished;
@@ -157,7 +159,7 @@ public partial class CombatDirector : Node
             return;
         }
 
-        currentBatch = batches[currentBatchIndex];
+        currentBatch = currentScenario.Batches[currentBatchIndex];
 
         batchTimer = currentBatch.Duration;
         nextBatchEnemyIndex = 0;
