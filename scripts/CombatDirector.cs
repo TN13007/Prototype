@@ -2,72 +2,96 @@ using Godot;
 
 public partial class CombatDirector : Node
 {
-    [Export]
-    public float StartDelay = 1f;
+    private Batch currentBatch;
+    private float batchTimer;
 
-    [Export]
-    public float CheckInterval = 0.2f;
+    private int nextBatchEnemyIndex;
 
-    private float startTimer;
-    private float checkTimer;
-    private int nextEnemyIndex = 0;
+    private float attackInterval = 0.5f;
+    private float attackTimer = 0f;
 
     public override void _Ready()
     {
-        startTimer = StartDelay;
-        checkTimer = 0f;
+        var enemies = GetTree().GetNodesInGroup("enemy");
+
+        Enemy[] batchEnemies = new Enemy[enemies.Count];
+
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            batchEnemies[i] = enemies[i] as Enemy;
+        }
+
+        currentBatch = new Batch(
+            BatchPattern.Single,
+            batchEnemies,
+            5f,
+            0.6f
+        );
+
+        batchTimer = currentBatch.Duration;
+
+        GD.Print("DIRECTOR: BATCH START");
     }
 
     public override void _Process(double delta)
     {
-        float dt = (float)delta;
-
-        if (startTimer > 0f)
-        {
-            startTimer -= dt;
-            return;
-        }
-
-        checkTimer -= dt;
-
-        if (checkTimer > 0f)
-            return;
-
-        checkTimer = CheckInterval;
-
-        TryStartEnemyAttack();
+        UpdateBatch((float)delta);
     }
 
-    private void TryStartEnemyAttack()
+    private void UpdateBatch(float delta)
     {
-        Godot.Collections.Array<Node> enemies =
-            GetTree().GetNodesInGroup("enemy");
-
-        if (enemies.Count == 0)
+        if (currentBatch == null)
             return;
 
-        foreach (Node node in enemies)
+        batchTimer -= delta;
+        attackTimer -= delta;
+
+        if (attackTimer <= 0f)
         {
-            if (node is Enemy enemy && !enemy.IsIdle)
-                return;
+            StartNextBatchAttack();
+
+            attackTimer = attackInterval;
         }
 
-        int count = enemies.Count;
-
-        for (int i = 0; i <count; i++)
+        if (batchTimer <= 0f)
         {
-            int index = (nextEnemyIndex + i) % count;
+            GD.Print("DIRECTOR: BATCH END");
 
-            if(enemies[index] is Enemy enemy && enemy.IsIdle)
-            {
-                enemy.StartAttack();
+            currentBatch = null;
+        }
+    }
 
-                GD.Print("DIRECTOR: START ENEMY ATTACK");
+    private void StartNextBatchAttack()
+    {
+        if (currentBatch == null)
+            return;
 
-                nextEnemyIndex = (index + 1) % count;
+        int count = currentBatch.Enemies.Length;
 
-                return;
-            }
+        if (count == 0)
+            return;
+
+        for (int i = 0; i < count; i++)
+        {
+            int index = (nextBatchEnemyIndex + i) % count;
+
+            Enemy enemy = currentBatch.Enemies[index];
+
+            if (enemy == null)
+                continue;
+
+            if (!enemy.IsIdle)
+                continue;
+
+            enemy.StartAttack();
+
+            nextBatchEnemyIndex = (index + 1) % count;
+
+            GD.Print(
+                $"DIRECTOR: BATCH ATTACK → {enemy.Name}"
+            );
+
+            return;
         }
     }
 }
