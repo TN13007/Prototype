@@ -2,17 +2,22 @@ using Godot;
 
 public partial class CombatDirector : Node
 {
+    private Batch[] batches;
     private Batch currentBatch;
+
+    private int currentBatchIndex;
     private float batchTimer;
 
     private int nextBatchEnemyIndex;
 
     private float attackInterval = 0.5f;
     private float attackTimer = 0f;
+
     private enum DirectorState
     {
         Batch,
-        Rest
+        Rest,
+        Finished
     }
 
     private DirectorState state = DirectorState.Batch;
@@ -29,12 +34,25 @@ public partial class CombatDirector : Node
             batchEnemies[i] = enemies[i] as Enemy;
         }
 
-        currentBatch = new Batch(
-            BatchPattern.Single,
-            batchEnemies,
-            5f,
-            0.6f
-        );
+        batches = new Batch[]
+        {
+            new Batch(
+                BatchPattern.Single,
+                batchEnemies,
+                2f,
+                0.6f
+            ),
+
+            new Batch(
+                BatchPattern.Single,
+                batchEnemies,
+                2f,
+                0.6f
+            )
+        };
+
+        currentBatchIndex = 0;
+        currentBatch = batches[currentBatchIndex];
 
         batchTimer = currentBatch.Duration;
 
@@ -44,6 +62,7 @@ public partial class CombatDirector : Node
     public override void _Process(double delta)
     {
         float dt = (float)delta;
+
         switch (state)
         {
             case DirectorState.Batch:
@@ -52,6 +71,9 @@ public partial class CombatDirector : Node
 
             case DirectorState.Rest:
                 UpdateRest(dt);
+                break;
+
+            case DirectorState.Finished:
                 break;
         }
     }
@@ -71,13 +93,13 @@ public partial class CombatDirector : Node
             attackTimer = attackInterval;
         }
 
-        if (batchTimer <= 0f)
-        {
-            GD.Print("DIRECTOR: BATCH END");
+        if (batchTimer > 0f)
+            return;
 
-            state = DirectorState.Rest;
-            restTimer = currentBatch.RestDuration;
-        }
+        GD.Print("DIRECTOR: BATCH END");
+
+        state = DirectorState.Rest;
+        restTimer = currentBatch.RestDuration;
     }
 
     private void StartNextBatchAttack()
@@ -113,15 +135,38 @@ public partial class CombatDirector : Node
             return;
         }
     }
+
     private void UpdateRest(float delta)
     {
         restTimer -= delta;
 
-        if (restTimer <= 0f)
+        if (restTimer > 0f)
+            return;
+
+        GD.Print("DIRECTOR: REST END");
+
+        currentBatchIndex++;
+
+        if (currentBatchIndex >= batches.Length)
         {
-            GD.Print("DIRECTOR: REST END");
-    
             currentBatch = null;
+            state = DirectorState.Finished;
+
+            GD.Print("DIRECTOR: ENCOUNTER END");
+
+            return;
         }
+
+        currentBatch = batches[currentBatchIndex];
+
+        batchTimer = currentBatch.Duration;
+        nextBatchEnemyIndex = 0;
+        attackTimer = 0f;
+
+        state = DirectorState.Batch;
+
+        GD.Print(
+            $"DIRECTOR: BATCH {currentBatchIndex + 1} START"
+        );
     }
 }
