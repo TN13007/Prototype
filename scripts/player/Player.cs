@@ -1,4 +1,3 @@
-using System.Threading.Tasks.Dataflow;
 using Godot;
 
 public partial class Player : CharacterBody2D
@@ -6,8 +5,6 @@ public partial class Player : CharacterBody2D
     [Export]
     public float ParryWindow = 0.15f;
 
-    private float parryTimer = 0f;
-    private bool isParrying = false;
     [Export]
     public float MoveSpeed = 300f;
 
@@ -24,48 +21,28 @@ public partial class Player : CharacterBody2D
     public float JumpBufferTime = 0.08f;
 
     public Vector2 AimDirection { get; private set; }
+
     private Area2D attackHitbox;
+
     private int hp = 3;
+
     private float coyoteTimer = 0f;
     private float jumpBufferTimer = 0f;
+
+    private float parryTimer = 0f;
+    private bool isParrying = false;
+
+    private float parryFlashTimer = 0f;
+    private float hitFlashTimer = 0f;
 
     public override void _Ready()
     {
         attackHitbox = GetNode<Area2D>("AttackHitbox");
+
         attackHitbox.AreaEntered += OnAttackHitboxAreaEntered;
         attackHitbox.Monitoring = false;
     }
 
-    private async void Attack()
-    {
-        GD.Print("PLAYER ATTACK");
-
-        attackHitbox.Monitoring = true;
-
-        await ToSignal(
-            GetTree().CreateTimer(0.1f),
-            SceneTreeTimer.SignalName.Timeout
-        );
-
-        attackHitbox.Monitoring = false;
-    }
-    private void OnAttackHitboxAreaEntered(Area2D area)
-    {
-        GD.Print($"PLAYER ATTACK HIT: {area.Name}");
-
-        if (!area.IsInGroup("enemy_hurtbox"))
-        {
-            GD.Print("Not enemy hurtbox");
-            return;
-        }
-
-        GD.Print("PLAYER HIT ENEMY");
-
-        if (area.GetParent() is Enemy enemy)
-        {
-            enemy.TakeDamage(1);
-        }
-    }
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
@@ -82,7 +59,6 @@ public partial class Player : CharacterBody2D
         QueueRedraw();
     }
 
-
     private void HandleTimers(float delta)
     {
         if (IsOnFloor())
@@ -93,7 +69,6 @@ public partial class Player : CharacterBody2D
         {
             coyoteTimer -= delta;
         }
-
 
         if (Input.IsActionJustPressed("jump"))
         {
@@ -114,20 +89,18 @@ public partial class Player : CharacterBody2D
                 isParrying = false;
             }
         }
-    }
 
-    public void TakeDamage(int damage)
-    {
-        if(isParrying)
+        if (parryFlashTimer > 0f)
         {
-            GD.Print("Player parried the attack!");
-            return;
+            parryFlashTimer -= delta;
         }
-        
-        hp -= damage;
 
-        GD.Print($"Player HP: {hp}");
+        if (hitFlashTimer > 0f)
+        {
+            hitFlashTimer -= delta;
+        }
     }
+
     private void HandleHorizontalMovement()
     {
         float direction = Input.GetAxis(
@@ -141,7 +114,6 @@ public partial class Player : CharacterBody2D
         );
     }
 
-
     private void HandleGravity(float delta)
     {
         if (!IsOnFloor())
@@ -152,7 +124,6 @@ public partial class Player : CharacterBody2D
             );
         }
     }
-
 
     private void HandleJump()
     {
@@ -168,7 +139,6 @@ public partial class Player : CharacterBody2D
         }
     }
 
-
     private void UpdateAimDirection()
     {
         Vector2 mousePosition = GetGlobalMousePosition();
@@ -178,31 +148,18 @@ public partial class Player : CharacterBody2D
         ).Normalized();
     }
 
+    private void Attack()
+    {
+        GD.Print("PLAYER ATTACK");
 
-    public override void _Draw()
-    {
-        DrawLine(
-            Vector2.Zero,
-            AimDirection * 50f,
-            Colors.Yellow,
-            3f
-        );
-    }
-    public override void _Input(InputEvent @event)
-    {
-        if (@event is InputEventKey keyEvent &&
-            keyEvent.Pressed &&
-            keyEvent.Keycode == Key.J)
+        attackHitbox.Monitoring = true;
+
+        GetTree().CreateTimer(0.1f).Timeout += () =>
         {
-            Attack();
-        }
-        if (@event is InputEventMouseButton mouseEvent &&
-        mouseEvent.Pressed &&
-        mouseEvent.ButtonIndex == MouseButton.Left)
-        {
-            Parry();
-        }
+            attackHitbox.Monitoring = false;
+        };
     }
+
     private void Parry()
     {
         if (isParrying)
@@ -212,5 +169,86 @@ public partial class Player : CharacterBody2D
         parryTimer = ParryWindow;
 
         GD.Print("PLAYER PARRY");
+    }
+
+    public void TakeDamage(int damage)
+    {
+        if (isParrying)
+        {
+            GD.Print("Player parried the attack!");
+
+            parryFlashTimer = 0.1f;
+
+            return;
+        }
+
+        hp -= damage;
+
+        hitFlashTimer = 0.1f;
+
+        GD.Print($"Player HP: {hp}");
+    }
+
+    private void OnAttackHitboxAreaEntered(Area2D area)
+    {
+        GD.Print($"PLAYER ATTACK HIT: {area.Name}");
+
+        if (!area.IsInGroup("enemy_hurtbox"))
+        {
+            GD.Print("Not enemy hurtbox");
+            return;
+        }
+
+        GD.Print("PLAYER HIT ENEMY");
+
+        if (area.GetParent() is Enemy enemy)
+        {
+            enemy.TakeDamage(1);
+        }
+    }
+
+    public override void _Draw()
+    {
+        DrawLine(
+            Vector2.Zero,
+            AimDirection * 50f,
+            Colors.Yellow,
+            3f
+        );
+
+        if (parryFlashTimer > 0f)
+        {
+            DrawCircle(
+                Vector2.Zero,
+                35f,
+                Colors.White
+            );
+        }
+
+        if (hitFlashTimer > 0f)
+        {
+            DrawCircle(
+                Vector2.Zero,
+                35f,
+                Colors.Red
+            );
+        }
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey keyEvent &&
+            keyEvent.Pressed &&
+            keyEvent.Keycode == Key.J)
+        {
+            Attack();
+        }
+
+        if (@event is InputEventMouseButton mouseEvent &&
+            mouseEvent.Pressed &&
+            mouseEvent.ButtonIndex == MouseButton.Left)
+        {
+            Parry();
+        }
     }
 }
