@@ -4,6 +4,11 @@ using Godot;
 public partial class Player : CharacterBody2D
 {
     [Export]
+    public float ParryWindow = 0.15f;
+
+    private float parryTimer = 0f;
+    private bool isParrying = false;
+    [Export]
     public float MoveSpeed = 300f;
 
     [Export]
@@ -98,10 +103,27 @@ public partial class Player : CharacterBody2D
         {
             jumpBufferTimer -= delta;
         }
+
+        if (isParrying)
+        {
+            parryTimer -= delta;
+
+            if (parryTimer <= 0f)
+            {
+                parryTimer = 0f;
+                isParrying = false;
+            }
+        }
     }
 
     public void TakeDamage(int damage)
     {
+        if(isParrying)
+        {
+            GD.Print("Player parried the attack!");
+            return;
+        }
+        
         hp -= damage;
 
         GD.Print($"Player HP: {hp}");
@@ -174,5 +196,21 @@ public partial class Player : CharacterBody2D
         {
             Attack();
         }
+        if (@event is InputEventMouseButton mouseEvent &&
+        mouseEvent.Pressed &&
+        mouseEvent.ButtonIndex == MouseButton.Left)
+        {
+            Parry();
+        }
+    }
+    private void Parry()
+    {
+        if (isParrying)
+            return;
+
+        isParrying = true;
+        parryTimer = ParryWindow;
+
+        GD.Print("PLAYER PARRY");
     }
 }
