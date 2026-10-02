@@ -9,6 +9,14 @@ public partial class CombatDirector : Node
 
     private float attackInterval = 0.5f;
     private float attackTimer = 0f;
+    private enum DirectorState
+    {
+        Batch,
+        Rest
+    }
+
+    private DirectorState state = DirectorState.Batch;
+    private float restTimer;
 
     public override void _Ready()
     {
@@ -35,7 +43,17 @@ public partial class CombatDirector : Node
 
     public override void _Process(double delta)
     {
-        UpdateBatch((float)delta);
+        float dt = (float)delta;
+        switch (state)
+        {
+            case DirectorState.Batch:
+                UpdateBatch(dt);
+                break;
+
+            case DirectorState.Rest:
+                UpdateRest(dt);
+                break;
+        }
     }
 
     private void UpdateBatch(float delta)
@@ -57,7 +75,8 @@ public partial class CombatDirector : Node
         {
             GD.Print("DIRECTOR: BATCH END");
 
-            currentBatch = null;
+            state = DirectorState.Rest;
+            restTimer = currentBatch.RestDuration;
         }
     }
 
@@ -92,6 +111,17 @@ public partial class CombatDirector : Node
             );
 
             return;
+        }
+    }
+    private void UpdateRest(float delta)
+    {
+        restTimer -= delta;
+
+        if (restTimer <= 0f)
+        {
+            GD.Print("DIRECTOR: REST END");
+    
+            currentBatch = null;
         }
     }
 }
