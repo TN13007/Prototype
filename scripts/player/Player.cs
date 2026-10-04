@@ -238,16 +238,17 @@ public partial class Player : CharacterBody2D
 
     public override void _Input(InputEvent @event)
     {
-        if (@event is InputEventKey keyEvent &&
-            keyEvent.Pressed &&
-            keyEvent.Keycode == Key.J)
+        if (@event is not InputEventMouseButton mouseEvent)
+            return;
+
+        if (!mouseEvent.Pressed)
+            return;
+
+        if (mouseEvent.ButtonIndex == MouseButton.Left)
         {
             Attack();
         }
-
-        if (@event is InputEventMouseButton mouseEvent &&
-            mouseEvent.Pressed &&
-            mouseEvent.ButtonIndex == MouseButton.Left)
+        else if (mouseEvent.ButtonIndex == MouseButton.Right)
         {
             Parry();
         }
