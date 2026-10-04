@@ -202,9 +202,19 @@ public partial class CombatDirector : Node
             Enemy first = FindAvailableEnemy();
             Enemy second = FindAvailableEnemy(first);
 
-            if (first == null || second == null)
+            if (first == null)
             {
-                GD.Print("DIRECTOR: DOUBLE BROKEN");
+                GD.Print("DIRECTOR: DOUBLE BROKEN → SILENCE");
+                return;
+            }
+
+            if (second == null)
+            {
+                first.StartAttack();
+
+                GD.Print(
+                    $"DIRECTOR: DOUBLE DEGRADED → SINGLE → {first.Name}"
+                );
 
                 return;
             }
