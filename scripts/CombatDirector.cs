@@ -13,6 +13,8 @@ public partial class CombatDirector : Node
 
     private float attackInterval = 0.5f;
     private float attackTimer = 0f;
+    private int currentSlotIndex = 0;
+    private float slotTimer = 0f;
 
     private enum DirectorState
     {
@@ -71,6 +73,12 @@ public partial class CombatDirector : Node
                         batchEnemies,
                         3f,
                         0.8f
+                    ),
+                    new Batch(
+                        BatchPattern.Double,
+                        batchEnemies,
+                        2f,
+                        1f
                     )
                 }
             ),
@@ -95,8 +103,8 @@ public partial class CombatDirector : Node
             )
         };
 
-        currentScenario = scenarios[2];
-        int scenarioIndex = 2;
+        currentScenario = scenarios[1];
+        int scenarioIndex = 1;
         GD.Print($"DIRECTOR: SCENARIO {scenarioIndex + 1} START");
 
         currentBatchIndex = 0;
@@ -132,58 +140,122 @@ public partial class CombatDirector : Node
             return;
 
         batchTimer -= delta;
-        attackTimer -= delta;
+        slotTimer -= delta;
 
-        if (attackTimer <= 0f)
+        if (currentSlotIndex < currentBatch.Slots.Length)
         {
-            StartNextBatchAttack();
+            AttackSlot slot = currentBatch.Slots[currentSlotIndex];
 
-            attackTimer = attackInterval;
+            if (slotTimer <= 0f)
+            {
+                ExecuteSlot(slot);
+
+                currentSlotIndex++;
+
+                if (currentSlotIndex < currentBatch.Slots.Length)
+                {
+                    AttackSlot nextSlot =
+                        currentBatch.Slots[currentSlotIndex];
+
+                    slotTimer =
+                        nextSlot.Time - slot.Time;
+                }
+            }
         }
 
-        if (batchTimer > 0f)
-            return;
+        if (batchTimer <= 0f)
+        {
+            GD.Print("DIRECTOR: BATCH END");
 
-        GD.Print("DIRECTOR: BATCH END");
-
-        state = DirectorState.Rest;
-        restTimer = currentBatch.RestDuration;
+            state = DirectorState.Rest;
+            restTimer = currentBatch.RestDuration;
+        }
     }
 
-    private void StartNextBatchAttack()
+    private void ExecuteSlot(AttackSlot slot)
     {
         if (currentBatch == null)
             return;
 
-        int count = currentBatch.Enemies.Length;
-
-        if (count == 0)
-            return;
-
-        for (int i = 0; i < count; i++)
+        if (slot.Pattern == AttackPattern.Single)
         {
-            int index = (nextBatchEnemyIndex + i) % count;
-
-            Enemy enemy = currentBatch.Enemies[index];
+            Enemy enemy = FindAvailableEnemy();
 
             if (enemy == null)
+            {
+                GD.Print("DIRECTOR: SLOT MISSED");
+
+                return;
+            }
+
+            enemy.StartAttack();
+
+            GD.Print(
+                $"DIRECTOR: SINGLE → {enemy.Name}"
+            );
+
+            return;
+        }
+
+        if (slot.Pattern == AttackPattern.Double)
+        {
+            Enemy first = FindAvailableEnemy();
+            Enemy second = FindAvailableEnemy(first);
+
+            if (first == null || second == null)
+            {
+                GD.Print("DIRECTOR: DOUBLE BROKEN");
+
+                return;
+            }
+
+            first.StartAttack();
+            second.StartAttack();
+
+            GD.Print(
+                $"DIRECTOR: DOUBLE → {first.Name} + {second.Name}"
+            );
+        }
+    }
+    private Enemy FindAvailableEnemy()
+    {
+        foreach (Enemy enemy in currentBatch.Enemies)
+        {
+            if (enemy == null)
+                continue;
+
+            if (!IsInstanceValid(enemy))
                 continue;
 
             if (!enemy.IsIdle)
                 continue;
 
-            enemy.StartAttack();
-
-            nextBatchEnemyIndex = (index + 1) % count;
-
-            GD.Print(
-                $"DIRECTOR: BATCH ATTACK → {enemy.Name}"
-            );
-
-            return;
+            return enemy;
         }
-    }
 
+        return null;
+    }
+    private Enemy FindAvailableEnemy(Enemy excluded)
+    {
+        foreach (Enemy enemy in currentBatch.Enemies)
+        {
+            if (enemy == null)
+                continue;
+
+            if (!IsInstanceValid(enemy))
+                continue;
+
+            if (enemy == excluded)
+                continue;
+
+            if (!enemy.IsIdle)
+                continue;
+
+            return enemy;
+        }
+
+        return null;
+    }
     private void UpdateRest(float delta)
     {
         restTimer -= delta;
@@ -208,8 +280,9 @@ public partial class CombatDirector : Node
         currentBatch = currentScenario.Batches[currentBatchIndex];
 
         batchTimer = currentBatch.Duration;
-        nextBatchEnemyIndex = 0;
-        attackTimer = 0f;
+
+        currentSlotIndex = 0;
+        slotTimer = 0f;
 
         state = DirectorState.Batch;
 
