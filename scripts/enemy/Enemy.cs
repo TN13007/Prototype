@@ -13,27 +13,18 @@ public abstract partial class Enemy : CharacterBody2D
     protected EnemyState state =
         EnemyState.Idle;
 
-
-
     protected ThreatRequest currentThreat;
 
-    private ThreatRequest reservedThreat;
-
-
+    private readonly List<ThreatRequest> scheduledThreats = new();
+    public int ScheduledThreatCount => scheduledThreats.Count + (currentThreat != null ? 1 : 0);
 
     protected Node2D player;
-
-
 
     protected List<EnemyCapability> capabilities =
         new();
 
-
-
     public EnemyState State =>
         state;
-
-
 
     public override void _Ready()
     {
@@ -41,7 +32,6 @@ public abstract partial class Enemy : CharacterBody2D
             GetTree()
             .GetFirstNodeInGroup("player")
             as Node2D;
-
 
         RegisterCapabilities();
 
@@ -57,13 +47,13 @@ public abstract partial class Enemy : CharacterBody2D
 
 
 
-    public override void _PhysicsProcess(
-        double delta)
+    public override void _PhysicsProcess(double delta)
     {
-        if(state ==
+        if (state ==
             EnemyState.Dead)
             return;
 
+        ActivateNextScheduledThreat();
 
         UpdateEnemy(
             (float)delta);
@@ -88,11 +78,11 @@ public abstract partial class Enemy : CharacterBody2D
     public bool CanHandle(
         ThreatType type)
     {
-        foreach(
+        foreach (
             EnemyCapability capability
             in capabilities)
         {
-            if(capability.Type == type)
+            if (capability.Type == type)
                 return true;
         }
 
@@ -100,81 +90,187 @@ public abstract partial class Enemy : CharacterBody2D
         return false;
     }
 
-
-
     public virtual bool IsAvailable()
     {
-        return
-            state == EnemyState.Idle &&
-            reservedThreat == null;
+        return state != EnemyState.Dead;
     }
 
-
     public bool TryGetCandidateScore(
-        ThreatRequest request,
-        CombatClock clock,
-        out float score)
+    ThreatRequest request,
+    CombatClock clock,
+    out float score)
     {
         score = float.MinValue;
 
-        if(request == null || clock == null || !IsAvailable())
+        if (request == null ||
+           clock == null ||
+           state == EnemyState.Dead)
             return false;
 
-        EnemyCapability capability = GetCapability(request.Type);
+        EnemyCapability capability =
+            GetCapability(request.Type);
 
-        if(capability == null || capability.ApproachSpeed <= 0f)
+        if (capability == null ||
+           capability.ApproachSpeed <= 0f)
             return false;
 
-        float distance = request.Target == null
-            ? 0f
-            : GlobalPosition.DistanceTo(request.Target.GlobalPosition);
+        if (request.ImpactTime <= clock.Time)
+            return false;
+
+        if (!CanScheduleThreat(
+            request,
+            capability))
+            return false;
+
+        float distance =
+            request.Target == null
+                ? 0f
+                : GlobalPosition.DistanceTo(
+                    request.Target.GlobalPosition);
 
         float requiredTime =
             distance / capability.ApproachSpeed +
             capability.PreparationTime;
 
-        float remainingTime = request.ImpactTime - clock.Time;
+        float remainingTime =
+            request.ImpactTime -
+            clock.Time;
 
-        if(requiredTime > remainingTime)
+        if (requiredTime > remainingTime)
             return false;
 
-        float timingSlack = remainingTime - requiredTime;
+        float timingSlack =
+            remainingTime -
+            requiredTime;
+
+        int load =
+            ScheduledThreatCount;
 
         score =
-            1000f -
-            distance * 0.1f -
-            timingSlack * 0.01f;
+            1000f
+            - load * 200f
+            - distance * 0.1f
+            - timingSlack * 0.01f;
 
         return true;
     }
-
-
-    public bool TryReserveThreat(ThreatRequest request)
+    public bool TryReserveThreat(
+    ThreatRequest request)
     {
-        if(request == null || !IsAvailable())
+        if (request == null ||
+           state == EnemyState.Dead ||
+           !CanHandle(request.Type))
             return false;
 
-        reservedThreat = request;
+        if (currentThreat == request ||
+           scheduledThreats.Contains(request))
+            return false;
+
+        EnemyCapability capability =
+            GetCapability(request.Type);
+
+        if (capability == null)
+            return false;
+
+        if (!CanScheduleThreat(
+            request,
+            capability))
+            return false;
+
+        scheduledThreats.Add(request);
+
+        scheduledThreats.Sort(
+            (a, b) =>
+                a.ImpactTime.CompareTo(
+                    b.ImpactTime));
+
         return true;
     }
 
-
-    public void ReleaseReservation(ThreatRequest request)
+    private bool CanScheduleThreat(
+        ThreatRequest request,
+        EnemyCapability capability)
     {
-        if(reservedThreat == request && currentThreat == null)
-            reservedThreat = null;
+        float minimumGap =
+            Mathf.Max(
+                capability.PreparationTime,
+                0.1f);
+
+        float previousImpact =
+            float.NegativeInfinity;
+
+        float nextImpact =
+            float.PositiveInfinity;
+
+        if (currentThreat != null)
+        {
+            if (currentThreat.ImpactTime <= request.ImpactTime)
+            {
+                previousImpact =
+                    currentThreat.ImpactTime;
+            }
+            else
+            {
+                nextImpact =
+                    currentThreat.ImpactTime;
+            }
+        }
+
+        foreach (
+            ThreatRequest scheduled
+            in scheduledThreats)
+        {
+            if (scheduled == request)
+                continue;
+
+            if (scheduled.ImpactTime <= request.ImpactTime &&
+               scheduled.ImpactTime > previousImpact)
+            {
+                previousImpact =
+                    scheduled.ImpactTime;
+            }
+
+            if (scheduled.ImpactTime > request.ImpactTime &&
+               scheduled.ImpactTime < nextImpact)
+            {
+                nextImpact =
+                    scheduled.ImpactTime;
+            }
+        }
+
+        if (previousImpact != float.NegativeInfinity &&
+           request.ImpactTime - previousImpact < minimumGap)
+        {
+            return false;
+        }
+
+        if (nextImpact != float.PositiveInfinity &&
+           nextImpact - request.ImpactTime < minimumGap)
+        {
+            return false;
+        }
+
+        return true;
     }
 
+    public void ReleaseReservation(
+    ThreatRequest request)
+    {
+        if (request == null)
+            return;
+
+        scheduledThreats.Remove(request);
+    }
 
 
     public EnemyCapability GetCapability(
         ThreatType type)
     {
-        foreach(
+        foreach (
             EnemyCapability capability
             in capabilities)
         {
-            if(capability.Type == type)
+            if (capability.Type == type)
                 return capability;
         }
 
@@ -190,24 +286,17 @@ public abstract partial class Enemy : CharacterBody2D
 
 
     public virtual bool ReceiveThreat(
-        ThreatRequest request)
+    ThreatRequest request)
     {
-        if(request == null || reservedThreat != request ||
-           !CanHandle(request.Type) ||
-           !request.BeginExecution(this))
+        if (request == null ||
+           !scheduledThreats.Contains(request) ||
+           !CanHandle(request.Type))
+        {
             return false;
-
-
-        currentThreat =
-            request;
-
-
-        ChangeState(
-            EnemyState.Planning);
-
+        }
 
         GD.Print(
-            $"{Name}: Threat received {request.Type}");
+            $"{Name}: Threat scheduled #{request.Id}");
 
         return true;
     }
@@ -224,43 +313,85 @@ public abstract partial class Enemy : CharacterBody2D
             $"{Name}: {state}");
     }
 
-
-
     public virtual void Kill()
     {
         ResolveCurrentThreat(
             ThreatState.Interrupted,
             "Actor was destroyed");
 
+        foreach (
+            ThreatRequest scheduled
+            in scheduledThreats)
+        {
+            scheduled.Resolve(
+                ThreatState.Interrupted,
+                "Actor was destroyed");
+        }
+
+        scheduledThreats.Clear();
+
         state =
             EnemyState.Dead;
 
-
         QueueFree();
     }
-
-
+    
     public virtual void TakeDamage(int damage)
     {
-        if(state == EnemyState.Dead || damage <= 0)
+        if (state == EnemyState.Dead || damage <= 0)
             return;
 
         Health -= damage;
 
-        if(Health <= 0)
+        if (Health <= 0)
             Kill();
     }
 
-
     protected void ResolveCurrentThreat(
-        ThreatState finalState,
-        string reason)
+    ThreatState finalState,
+    string reason)
     {
-        ThreatRequest threat = currentThreat ?? reservedThreat;
+        ThreatRequest threat =
+            currentThreat;
 
         currentThreat = null;
-        reservedThreat = null;
 
-        threat?.Resolve(finalState, reason);
+        threat?.Resolve(
+            finalState,
+            reason);
+    }
+
+    private void ActivateNextScheduledThreat()
+    {
+        if (state != EnemyState.Idle ||
+           currentThreat != null)
+        {
+            return;
+        }
+
+        while (scheduledThreats.Count > 0)
+        {
+            ThreatRequest nextThreat =
+                scheduledThreats[0];
+
+            scheduledThreats.RemoveAt(0);
+
+            if (!nextThreat.BeginExecution(this))
+            {
+                nextThreat.Resolve(
+                    ThreatState.Failed,
+                    "Could not begin execution");
+
+                continue;
+            }
+
+            currentThreat =
+                nextThreat;
+
+            ChangeState(
+                EnemyState.Planning);
+
+            return;
+        }
     }
 }
