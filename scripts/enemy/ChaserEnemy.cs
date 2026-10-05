@@ -425,23 +425,33 @@ public partial class ChaserEnemy : Enemy
             Velocity.Y
         );
 
-
         GD.Print(
             $"{Name}: ATTACK IMPACT"
         );
 
+        if (currentThreat != null &&
+            currentThreat.Target is Player player)
+        {
+            bool tookDamage =
+                player.TakeDamage(1);
+
+            if (!tookDamage)
+            {
+                GD.Print(
+                    $"{Name}: ATTACK WAS PARRIED"
+                );
+            }
+        }
 
         ResolveCurrentThreat(
             ThreatState.Completed,
             "Attack reached impact time"
         );
 
-
         ChangeState(
             EnemyState.Recovery
         );
     }
-
 
     private void Recover()
     {

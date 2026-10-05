@@ -1,4 +1,4 @@
-﻿﻿using Godot;
+﻿using Godot;
 using System.Collections.Generic;
 
 public partial class Player : CharacterBody2D
@@ -50,7 +50,7 @@ public partial class Player : CharacterBody2D
 
     [ExportGroup("Parry")]
     [Export]
-    public float ParryWindow = 0.15f;
+    public float ParryWindow = 0.22f;
 
     [ExportGroup("Health")]
     [Export]
@@ -469,21 +469,24 @@ public partial class Player : CharacterBody2D
     }
 
 
-    public void TakeDamage(int damage)
+    public bool TakeDamage(int damage)
     {
         if (isDodging)
         {
             GD.Print("PLAYER DODGED DAMAGE");
-            return;
+            return false;
         }
 
         if (isParrying)
         {
             GD.Print("PLAYER PARRIED");
 
-            parryFlashTimer = 0.1f;
+            parryTimer = ParryWindow;
+            isParrying = true;
 
-            return;
+            parryFlashTimer = 0.12f;
+
+            return false;
         }
 
         hp -= damage;
@@ -497,6 +500,8 @@ public partial class Player : CharacterBody2D
         {
             GD.Print("PLAYER DEAD");
         }
+
+        return true;
     }
 
 
@@ -561,4 +566,4 @@ public partial class Player : CharacterBody2D
     }
 
 
-} 
+}
