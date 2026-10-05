@@ -1,30 +1,27 @@
 using Godot;
+using System.Collections.Generic;
 
 
 public partial class CombatDirector : Node
 {
     private EncounterTimeline timeline;
 
-
-    private int currentIndex;
-
-
     private CombatClock clock;
 
-    private int nextThreatId = 1;
+    private ThreatDispatcher dispatcher;
 
+    private Node2D player;
 
     private EncounterState state =
         EncounterState.Finished;
 
+    private int nextThreatId = 1;
 
-    private ThreatDispatcher dispatcher;
+    private int plannedThreatCount;
 
-
-    private Node2D player;
+    private int resolvedThreatCount;
 
     private bool warnedMissingDependencies;
-
 
 
     public void Initialize(
@@ -33,23 +30,38 @@ public partial class CombatDirector : Node
         CombatClock combatClock)
     {
         timeline = encounter;
-
         dispatcher = threatDispatcher;
-
         clock = combatClock;
-
 
         ResolvePlayer();
 
+        if(timeline == null ||
+           dispatcher == null ||
+           clock == null ||
+           player == null)
+        {
+            GD.PushError(
+                "DIRECTOR: Cannot initialize encounter. " +
+                $"timeline: {timeline != null}, " +
+                $"dispatcher: {dispatcher != null}, " +
+                $"clock: {clock != null}, " +
+                $"player: {player != null}");
+
+            state =
+                EncounterState.Finished;
+
+            return;
+        }
+
+        PlanEncounter();
 
         state =
             EncounterState.Running;
 
-
         GD.Print(
-            "DIRECTOR: ENCOUNTER START");
+            $"DIRECTOR: ENCOUNTER READY " +
+            $"({plannedThreatCount} threats)");
     }
-
 
 
     public override void _Ready()
@@ -82,7 +94,7 @@ public partial class CombatDirector : Node
             GetTree()
             .GetFirstNodeInGroup("player");
 
-        if (found == null)
+        if(found == null)
         {
             GD.PushError(
                 "DIRECTOR: No node found in group " +
@@ -91,7 +103,7 @@ public partial class CombatDirector : Node
             return;
         }
 
-        if (found is not Node2D node2D)
+        if(found is not Node2D node2D)
         {
             GD.PushError(
                 "DIRECTOR: Group 'player' must be " +
@@ -121,18 +133,55 @@ public partial class CombatDirector : Node
     }
 
 
+    private void PlanEncounter()
+    {
+        plannedThreatCount = 0;
+        resolvedThreatCount = 0;
+
+        foreach(BeatEvent beat in timeline.Events)
+        {
+            CreateThreat(beat);
+        }
+    }
+
+
+    private void CreateThreat(
+        BeatEvent beat)
+    {
+        ThreatRequest request =
+            new ThreatRequest(
+                nextThreatId++,
+                beat.ThreatType,
+                beat.Time,
+                player
+            );
+
+        request.Resolved +=
+            OnThreatResolved;
+
+        plannedThreatCount++;
+
+        GD.Print(
+            $"DIRECTOR: PLAN THREAT #{request.Id} " +
+            $"{beat.ThreatType} " +
+            $"impact @ {request.ImpactTime}"
+        );
+
+        dispatcher.Dispatch(
+            request);
+    }
+
+
     public override void _Process(
         double delta)
     {
         if(state ==
-            EncounterState.Finished)
+           EncounterState.Finished)
             return;
-
-
-        ResolvePlayer();
 
         if(timeline == null ||
            dispatcher == null ||
+           clock == null ||
            player == null)
         {
             if(!warnedMissingDependencies)
@@ -143,67 +192,24 @@ public partial class CombatDirector : Node
                     "DIRECTOR: Missing dependencies " +
                     $"(timeline: {timeline != null}, " +
                     $"dispatcher: {dispatcher != null}, " +
+                    $"clock: {clock != null}, " +
                     $"player: {player != null})");
             }
 
             return;
         }
 
-        if(clock == null || !clock.IsRunning)
-            return;
-
-
-        while(
-            currentIndex <
-            timeline.Events.Count)
+        if(plannedThreatCount == 0)
         {
-            BeatEvent beat =
-                timeline.Events[currentIndex];
-
-
-            if(clock.Time < beat.Time)
-                break;
-
-
-            CreateThreat(
-                beat);
-
-
-            currentIndex++;
+            Finish();
+            return;
         }
 
-
-        if(currentIndex >=
-           timeline.Events.Count)
+        if(resolvedThreatCount >=
+           plannedThreatCount)
         {
             Finish();
         }
-    }
-
-
-
-    private void CreateThreat(
-        BeatEvent beat)
-    {
-        ThreatRequest request =
-            new ThreatRequest(
-                nextThreatId++,
-                beat.ThreatType,
-                beat.Time + beat.LeadTime,
-                player
-            );
-
-        request.Resolved += OnThreatResolved;
-
-
-        GD.Print(
-            $"DIRECTOR: THREAT #{request.Id} {beat.ThreatType} " +
-            $"impact @ {request.ImpactTime}"
-        );
-
-
-        dispatcher.Dispatch(
-            request);
     }
 
 
@@ -211,18 +217,25 @@ public partial class CombatDirector : Node
         ThreatRequest request,
         ThreatResolution resolution)
     {
+        resolvedThreatCount++;
+
         GD.Print(
             $"DIRECTOR: THREAT #{request.Id} " +
-            $"{resolution.State} ({resolution.Reason})");
+            $"{resolution.State} " +
+            $"({resolution.Reason}) " +
+            $"[{resolvedThreatCount}/{plannedThreatCount}]"
+        );
     }
-
 
 
     private void Finish()
     {
+        if(state ==
+           EncounterState.Finished)
+            return;
+
         state =
             EncounterState.Finished;
-
 
         GD.Print(
             "DIRECTOR: ENCOUNTER END");

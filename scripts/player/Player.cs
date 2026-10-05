@@ -55,6 +55,9 @@ public partial class Player : CharacterBody2D
     [ExportGroup("Health")]
     [Export]
     public int MaxHp = 3;
+    [ExportGroup("Debug")]
+    [Export]
+    public bool DebugLogs = false;
 
     public Vector2 AimDirection { get; private set; }
 
@@ -109,6 +112,12 @@ public partial class Player : CharacterBody2D
     private Vector2 hitVfxPosition;
 
     private float slashFlashTimer;
+
+    private void DebugLog(string message)
+    {
+        if (DebugLogs)
+            DebugLog(message);
+    }
 
 
     public override void _Ready()
@@ -358,7 +367,7 @@ public partial class Player : CharacterBody2D
             0f
         );
 
-        GD.Print("PLAYER DODGE");
+        DebugLog("PLAYER DODGE");
     }
 
 
@@ -408,7 +417,7 @@ public partial class Player : CharacterBody2D
 
         UpdateAttackHitboxTransform();
 
-        GD.Print("PLAYER ATTACK");
+        DebugLog("PLAYER ATTACK");
 
         QueueRedraw();
     }
@@ -432,7 +441,7 @@ public partial class Player : CharacterBody2D
 
         attackHitbox.Monitoring = true;
 
-        GD.Print("PLAYER SLASH ACTIVE");
+        DebugLog("PLAYER SLASH ACTIVE");
     }
 
 
@@ -465,7 +474,7 @@ public partial class Player : CharacterBody2D
         isParrying = true;
         parryTimer = ParryWindow;
 
-        GD.Print("PLAYER PARRY");
+        DebugLog("PLAYER PARRY");
     }
 
 
@@ -473,13 +482,13 @@ public partial class Player : CharacterBody2D
     {
         if (isDodging)
         {
-            GD.Print("PLAYER DODGED DAMAGE");
+            DebugLog("PLAYER DODGED DAMAGE");
             return false;
         }
 
         if (isParrying)
         {
-            GD.Print("PLAYER PARRIED");
+            DebugLog("PLAYER PARRIED");
 
             parryTimer = ParryWindow;
             isParrying = true;
@@ -494,30 +503,29 @@ public partial class Player : CharacterBody2D
 
         hitFlashTimer = 0.12f;
 
-        GD.Print($"Player HP: {hp}");
+        DebugLog($"Player HP: {hp}");
 
         if (hp <= 0)
         {
-            GD.Print("PLAYER DEAD");
+            DebugLog("PLAYER DEAD");
         }
 
         return true;
     }
 
-
     private void OnAttackHitboxAreaEntered(Area2D area)
     {
-        GD.Print($"PLAYER ATTACK HIT: {area.Name}");
+        DebugLog($"PLAYER ATTACK HIT: {area.Name}");
 
         if (!area.IsInGroup("enemy_hurtbox"))
         {
-            GD.Print("Not enemy hurtbox");
+            DebugLog("Not enemy hurtbox");
             return;
         }
 
         if (area.GetParent() is not Enemy enemy)
         {
-            GD.Print("Hurtbox parent is not Enemy");
+            DebugLog("Hurtbox parent is not Enemy");
             return;
         }
 
