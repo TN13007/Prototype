@@ -8,39 +8,32 @@ public class EnemyPlanner
         ThreatRequest threat,
         float moveSpeed)
     {
-        if (threat == null ||
-            threat.Target == null)
-            return
-                float.PositiveInfinity;
-
-        if (moveSpeed <= 0f)
-            return
-                float.PositiveInfinity;
-
-        float distance =
-            enemy.GlobalPosition
-            .DistanceTo(
-                threat.Target.GlobalPosition);
-
-
-        float moveTime =
-            distance / moveSpeed;
-
+        if(enemy == null ||
+           threat == null ||
+           moveSpeed <= 0f)
+        {
+            return float.PositiveInfinity;
+        }
 
         EnemyCapability capability =
             enemy.GetCapability(
                 threat.Type);
 
+        if(capability == null)
+            return float.PositiveInfinity;
 
-        float prepare =
-            capability.PreparationTime;
+        float approachDistance =
+            enemy.GetApproachDistance(
+                threat,
+                capability);
 
+        float travelTime =
+            approachDistance /
+            moveSpeed;
 
         return
-            threat.ImpactTime
-            -
-            moveTime
-            -
-            prepare;
+            threat.ImpactTime -
+            travelTime -
+            capability.PreparationTime;
     }
 }

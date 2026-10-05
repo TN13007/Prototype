@@ -15,8 +15,8 @@ public abstract partial class Enemy : CharacterBody2D
 
     protected ThreatRequest currentThreat;
 
-    private readonly List<ThreatRequest> scheduledThreats = new();
-    public int ScheduledThreatCount => scheduledThreats.Count + (currentThreat != null ? 1 : 0);
+    private readonly List<ThreatRequest> scheduledThreats =
+        new();
 
     protected Node2D player;
 
@@ -25,6 +25,10 @@ public abstract partial class Enemy : CharacterBody2D
 
     public EnemyState State =>
         state;
+
+    public int ScheduledThreatCount =>
+        scheduledThreats.Count +
+        (currentThreat != null ? 1 : 0);
 
     public override void _Ready()
     {
@@ -35,21 +39,18 @@ public abstract partial class Enemy : CharacterBody2D
 
         RegisterCapabilities();
 
-
         EnemyManager manager =
             GetTree()
             .GetFirstNodeInGroup("enemy_manager")
             as EnemyManager;
 
-
         manager?.Register(this);
     }
 
-
-
-    public override void _PhysicsProcess(double delta)
+    public override void _PhysicsProcess(
+        double delta)
     {
-        if (state ==
+        if(state ==
             EnemyState.Dead)
             return;
 
@@ -59,33 +60,25 @@ public abstract partial class Enemy : CharacterBody2D
             (float)delta);
     }
 
-
-
     protected abstract void UpdateEnemy(
         float delta);
 
-
-
     protected abstract void RegisterCapabilities();
-
-
 
     // =========================
     // CAPABILITY
     // =========================
 
-
     public bool CanHandle(
         ThreatType type)
     {
-        foreach (
+        foreach(
             EnemyCapability capability
             in capabilities)
         {
-            if (capability.Type == type)
+            if(capability.Type == type)
                 return true;
         }
-
 
         return false;
     }
@@ -95,49 +88,75 @@ public abstract partial class Enemy : CharacterBody2D
         return state != EnemyState.Dead;
     }
 
+    public virtual float GetApproachDistance(
+        ThreatRequest request,
+        EnemyCapability capability)
+    {
+        if(request == null ||
+           capability == null ||
+           request.Target == null)
+        {
+            return 0f;
+        }
+
+        float distance =
+            GlobalPosition.DistanceTo(
+                request.Target.GlobalPosition);
+
+        return Mathf.Max(
+            0f,
+            distance - capability.AttackRange);
+    }
+
     public bool TryGetCandidateScore(
-    ThreatRequest request,
-    CombatClock clock,
-    out float score)
+        ThreatRequest request,
+        CombatClock clock,
+        out float score)
     {
         score = float.MinValue;
 
-        if (request == null ||
+        if(request == null ||
            clock == null ||
            state == EnemyState.Dead)
+        {
             return false;
+        }
 
         EnemyCapability capability =
             GetCapability(request.Type);
 
-        if (capability == null ||
+        if(capability == null ||
            capability.ApproachSpeed <= 0f)
+        {
+            return false;
+        }
+
+        if(request.ImpactTime <= clock.Time)
             return false;
 
-        if (request.ImpactTime <= clock.Time)
-            return false;
-
-        if (!CanScheduleThreat(
-            request,
-            capability))
-            return false;
-
-        float distance =
-            request.Target == null
-                ? 0f
-                : GlobalPosition.DistanceTo(
-                    request.Target.GlobalPosition);
+        float approachDistance =
+            GetApproachDistance(
+                request,
+                capability);
 
         float requiredTime =
-            distance / capability.ApproachSpeed +
+            approachDistance /
+            capability.ApproachSpeed +
             capability.PreparationTime;
 
         float remainingTime =
             request.ImpactTime -
             clock.Time;
 
-        if (requiredTime > remainingTime)
+        if(requiredTime > remainingTime)
             return false;
+
+        if(!CanScheduleThreat(
+            request,
+            capability))
+        {
+            return false;
+        }
 
         float timingSlack =
             remainingTime -
@@ -147,35 +166,40 @@ public abstract partial class Enemy : CharacterBody2D
             ScheduledThreatCount;
 
         score =
-            1000f
-            - load * 200f
-            - distance * 0.1f
-            - timingSlack * 0.01f;
+            1000f -
+            load * 200f -
+            approachDistance * 0.1f -
+            timingSlack * 0.01f;
 
         return true;
     }
+
     public bool TryReserveThreat(
-    ThreatRequest request)
+        ThreatRequest request)
     {
-        if (request == null ||
+        if(request == null ||
            state == EnemyState.Dead ||
            !CanHandle(request.Type))
+        {
             return false;
+        }
 
-        if (currentThreat == request ||
+        if(currentThreat == request ||
            scheduledThreats.Contains(request))
+        {
             return false;
+        }
 
         EnemyCapability capability =
             GetCapability(request.Type);
 
-        if (capability == null)
+        if(capability == null ||
+           !CanScheduleThreat(
+               request,
+               capability))
+        {
             return false;
-
-        if (!CanScheduleThreat(
-            request,
-            capability))
-            return false;
+        }
 
         scheduledThreats.Add(request);
 
@@ -187,10 +211,25 @@ public abstract partial class Enemy : CharacterBody2D
         return true;
     }
 
+    public void ReleaseReservation(
+        ThreatRequest request)
+    {
+        if(request == null)
+            return;
+
+        scheduledThreats.Remove(request);
+    }
+
     private bool CanScheduleThreat(
         ThreatRequest request,
         EnemyCapability capability)
     {
+        if(request == null ||
+           capability == null)
+        {
+            return false;
+        }
+
         float minimumGap =
             Mathf.Max(
                 capability.PreparationTime,
@@ -202,9 +241,10 @@ public abstract partial class Enemy : CharacterBody2D
         float nextImpact =
             float.PositiveInfinity;
 
-        if (currentThreat != null)
+        if(currentThreat != null)
         {
-            if (currentThreat.ImpactTime <= request.ImpactTime)
+            if(currentThreat.ImpactTime <=
+               request.ImpactTime)
             {
                 previousImpact =
                     currentThreat.ImpactTime;
@@ -216,36 +256,44 @@ public abstract partial class Enemy : CharacterBody2D
             }
         }
 
-        foreach (
+        foreach(
             ThreatRequest scheduled
             in scheduledThreats)
         {
-            if (scheduled == request)
+            if(scheduled == request)
                 continue;
 
-            if (scheduled.ImpactTime <= request.ImpactTime &&
-               scheduled.ImpactTime > previousImpact)
+            if(scheduled.ImpactTime <=
+               request.ImpactTime &&
+               scheduled.ImpactTime >
+               previousImpact)
             {
                 previousImpact =
                     scheduled.ImpactTime;
             }
 
-            if (scheduled.ImpactTime > request.ImpactTime &&
-               scheduled.ImpactTime < nextImpact)
+            if(scheduled.ImpactTime >
+               request.ImpactTime &&
+               scheduled.ImpactTime <
+               nextImpact)
             {
                 nextImpact =
                     scheduled.ImpactTime;
             }
         }
 
-        if (previousImpact != float.NegativeInfinity &&
-           request.ImpactTime - previousImpact < minimumGap)
+        if(previousImpact !=
+           float.NegativeInfinity &&
+           request.ImpactTime - previousImpact <
+           minimumGap)
         {
             return false;
         }
 
-        if (nextImpact != float.PositiveInfinity &&
-           nextImpact - request.ImpactTime < minimumGap)
+        if(nextImpact !=
+           float.PositiveInfinity &&
+           nextImpact - request.ImpactTime <
+           minimumGap)
         {
             return false;
         }
@@ -253,42 +301,28 @@ public abstract partial class Enemy : CharacterBody2D
         return true;
     }
 
-    public void ReleaseReservation(
-    ThreatRequest request)
-    {
-        if (request == null)
-            return;
-
-        scheduledThreats.Remove(request);
-    }
-
-
     public EnemyCapability GetCapability(
         ThreatType type)
     {
-        foreach (
+        foreach(
             EnemyCapability capability
             in capabilities)
         {
-            if (capability.Type == type)
+            if(capability.Type == type)
                 return capability;
         }
 
-
         return null;
     }
-
-
 
     // =========================
     // THREAT
     // =========================
 
-
     public virtual bool ReceiveThreat(
-    ThreatRequest request)
+        ThreatRequest request)
     {
-        if (request == null ||
+        if(request == null ||
            !scheduledThreats.Contains(request) ||
            !CanHandle(request.Type))
         {
@@ -301,82 +335,22 @@ public abstract partial class Enemy : CharacterBody2D
         return true;
     }
 
-
-
-    protected void ChangeState(
-        EnemyState newState)
-    {
-        state = newState;
-
-
-        GD.Print(
-            $"{Name}: {state}");
-    }
-
-    public virtual void Kill()
-    {
-        ResolveCurrentThreat(
-            ThreatState.Interrupted,
-            "Actor was destroyed");
-
-        foreach (
-            ThreatRequest scheduled
-            in scheduledThreats)
-        {
-            scheduled.Resolve(
-                ThreatState.Interrupted,
-                "Actor was destroyed");
-        }
-
-        scheduledThreats.Clear();
-
-        state =
-            EnemyState.Dead;
-
-        QueueFree();
-    }
-    
-    public virtual void TakeDamage(int damage)
-    {
-        if (state == EnemyState.Dead || damage <= 0)
-            return;
-
-        Health -= damage;
-
-        if (Health <= 0)
-            Kill();
-    }
-
-    protected void ResolveCurrentThreat(
-    ThreatState finalState,
-    string reason)
-    {
-        ThreatRequest threat =
-            currentThreat;
-
-        currentThreat = null;
-
-        threat?.Resolve(
-            finalState,
-            reason);
-    }
-
     private void ActivateNextScheduledThreat()
     {
-        if (state != EnemyState.Idle ||
+        if(state != EnemyState.Idle ||
            currentThreat != null)
         {
             return;
         }
 
-        while (scheduledThreats.Count > 0)
+        while(scheduledThreats.Count > 0)
         {
             ThreatRequest nextThreat =
                 scheduledThreats[0];
 
             scheduledThreats.RemoveAt(0);
 
-            if (!nextThreat.BeginExecution(this))
+            if(!nextThreat.BeginExecution(this))
             {
                 nextThreat.Resolve(
                     ThreatState.Failed,
@@ -393,5 +367,65 @@ public abstract partial class Enemy : CharacterBody2D
 
             return;
         }
+    }
+
+    protected void ChangeState(
+        EnemyState newState)
+    {
+        state = newState;
+
+        GD.Print(
+            $"{Name}: {state}");
+    }
+
+    public virtual void Kill()
+    {
+        ResolveCurrentThreat(
+            ThreatState.Interrupted,
+            "Actor was destroyed");
+
+        foreach(
+            ThreatRequest scheduled
+            in scheduledThreats)
+        {
+            scheduled.Resolve(
+                ThreatState.Interrupted,
+                "Actor was destroyed");
+        }
+
+        scheduledThreats.Clear();
+
+        state =
+            EnemyState.Dead;
+
+        QueueFree();
+    }
+
+    public virtual void TakeDamage(int damage)
+    {
+        if(state == EnemyState.Dead ||
+           damage <= 0)
+        {
+            return;
+        }
+
+        Health -= damage;
+
+        if(Health <= 0)
+            Kill();
+    }
+
+    protected void ResolveCurrentThreat(
+        ThreatState finalState,
+        string reason)
+    {
+        ThreatRequest threat =
+            currentThreat;
+
+        currentThreat = null;
+
+        threat?.Resolve(
+            finalState,
+            reason);
     }
 }

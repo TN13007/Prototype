@@ -45,6 +45,29 @@ public partial class ChaserEnemy : Enemy
     }
 
 
+    public override float GetApproachDistance(
+        ThreatRequest request,
+        EnemyCapability capability)
+    {
+        if(request == null ||
+           capability == null ||
+           request.Target == null)
+        {
+            return 0f;
+        }
+
+        float horizontalDistance =
+            Mathf.Abs(
+                request.Target.GlobalPosition.X -
+                GlobalPosition.X);
+
+        return Mathf.Max(
+            0f,
+            horizontalDistance -
+            capability.AttackRange);
+    }
+
+
     public override void _Ready()
     {
         base._Ready();
