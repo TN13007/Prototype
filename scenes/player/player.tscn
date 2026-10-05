@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://b57hgcl5pg74n"]
 
 [ext_resource type="Script" uid="uid://c34sbs57innnq" path="res://scripts/player/Player.cs" id="1_8afob"]
+[ext_resource type="Script" uid="uid://sewesf85ipmn" path="res://scripts/player/PlayerVfx.cs" id="2_dovo2"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_rbs5v"]
 radius = 16.0
@@ -31,3 +32,6 @@ monitoring = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=1009826854]
 shape = SubResource("RectangleShape2D_a3pup")
+
+[node name="PlayerVfx" type="Node2D" parent="." unique_id=1167471637]
+script = ExtResource("2_dovo2")

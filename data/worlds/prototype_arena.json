@@ -1,0 +1,9 @@
+{
+  "id": "prototype_arena",
+  "combatZones": ["arena"],
+  "spawnSlots": [
+    { "id": "spawn_west", "positionX": 150, "positionY": 280, "allowedEnemies": ["Chaser"] },
+    { "id": "spawn_south", "positionX": 540, "positionY": 520, "allowedEnemies": ["Chaser"] },
+    { "id": "spawn_east", "positionX": 980, "positionY": 340, "allowedEnemies": ["Chaser"] }
+  ]
+}

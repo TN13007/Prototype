@@ -1,0 +1,11 @@
+{
+  "id": "prototype_roster",
+  "entries": [
+    {
+      "enemyType": "Chaser",
+      "scenePath": "res://scenes/enemy/chaser_slash_enemy.tscn",
+      "reserveCount": 2,
+      "maxActive": 5
+    }
+  ]
+}

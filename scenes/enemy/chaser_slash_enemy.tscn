@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://cwtdilmqqekh3"]
+
+[ext_resource type="Script" uid="uid://dseancklgny0a" path="res://scripts/enemy/ChaserEnemy.cs" id="1_2lbef"]
+[ext_resource type="AudioStream" uid="uid://n6vymwbsx420" path="res://data/sounds/freesound_community-bicycle-bell-105044.mp3" id="2_au8ph"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_vevvk"]
+radius = 18.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_fke3r"]
+size = Vector2(32, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_oi5ee"]
+size = Vector2(50, 30)
+
+[node name="ChaserSlashEnemy" type="CharacterBody2D" unique_id=1470428667]
+script = ExtResource("1_2lbef")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1021640275]
+shape = SubResource("CircleShape2D_vevvk")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=1214377705]
+polygon = PackedVector2Array(-18, -18, 18, -18, 18, 18, -18, 18)
+
+[node name="TelegraphSound" type="AudioStreamPlayer2D" parent="." unique_id=929240431]
+stream = ExtResource("2_au8ph")
+
+[node name="Hurtbox" type="Area2D" parent="." unique_id=944592053 groups=["enemy_hurtbox"]]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=1186836706]
+shape = SubResource("RectangleShape2D_fke3r")
+
+[node name="AttackHitbox" type="Area2D" parent="." unique_id=723440860]
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=2030102453]
+shape = SubResource("RectangleShape2D_oi5ee")

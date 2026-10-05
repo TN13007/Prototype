@@ -1,0 +1,10 @@
+{
+  "id": "chiptune_battle_loop",
+  "audioPath": "res://data/audio/battle_music_01-loop.ogg",
+  "bpm": 128.0,
+  "beatsPerBar": 4,
+  "barsPerLoop": 4,
+  "loopDurationSeconds": 7.5,
+  "intensity": 3,
+  "tags": ["combat", "build", "climax", "chiptune"]
+}

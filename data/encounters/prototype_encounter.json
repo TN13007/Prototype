@@ -1,0 +1,34 @@
+{
+  "id": "prototype_choreography",
+  "worldId": "prototype_arena",
+  "musicPhraseIds": ["chiptune_battle_loop"],
+  "sections": [
+    {
+      "id": "intro",
+      "startBar": 0,
+      "barCount": 2,
+      "intensity": 1,
+      "threatType": "Melee",
+      "beatsBetweenThreats": 0,
+      "leadTime": 1.0
+    },
+    {
+      "id": "build",
+      "startBar": 2,
+      "barCount": 4,
+      "intensity": 2,
+      "threatType": "Melee",
+      "beatsBetweenThreats": 4,
+      "leadTime": 1.2
+    },
+    {
+      "id": "climax",
+      "startBar": 6,
+      "barCount": 4,
+      "intensity": 3,
+      "threatType": "Melee",
+      "beatsBetweenThreats": 2,
+      "leadTime": 1.0
+    }
+  ]
+}

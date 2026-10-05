@@ -1,333 +1,266 @@
 using Godot;
+using System.Collections.Generic;
 
-public partial class Enemy : CharacterBody2D
+
+public abstract partial class Enemy : CharacterBody2D
 {
-    private enum EnemyState
-    {
-        Idle,
-        Telegraph,
-        Attack,
-        Recovery,
-        Dead
-    }
+    [Export]
+    public int Health { get; set; } = 1;
 
-    [Export] private int maxHp = 3;
-    [Export] private float telegraphDuration = 0.5f;
-    [Export] private float attackDuration = 0.2f;
-    [Export] private float recoveryDuration = 0.5f;
-    [Export] private float attackSpeed = 500f;
-    [Export] private float attackRange = 30f;
+    [Export]
+    public EnemyType EnemyTypeId { get; set; } = EnemyType.Chaser;
 
-    private int hp;
+    protected EnemyState state =
+        EnemyState.Idle;
 
-    private EnemyState state = EnemyState.Idle;
-    private float stateTimer;
 
-    private Vector2 attackDirection = Vector2.Right;
 
-    private Node2D player;
-    private Area2D attackHitbox;
-    private AudioStreamPlayer2D telegraphSound;
+    protected ThreatRequest currentThreat;
 
-    public bool IsIdle => state == EnemyState.Idle;
-    public bool IsDead => state == EnemyState.Dead;
+    private ThreatRequest reservedThreat;
+
+
+
+    protected Node2D player;
+
+
+
+    protected List<EnemyCapability> capabilities =
+        new();
+
+
+
+    public EnemyState State =>
+        state;
+
+
 
     public override void _Ready()
     {
-        hp = maxHp;
+        player =
+            GetTree()
+            .GetFirstNodeInGroup("player")
+            as Node2D;
 
-        player = GetTree().GetFirstNodeInGroup("player") as Node2D;
 
-        attackHitbox = GetNode<Area2D>("AttackHitbox");
-        telegraphSound = GetNode<AudioStreamPlayer2D>("TelegraphSound");
+        RegisterCapabilities();
 
-        attackHitbox.AreaEntered += OnAttackHitboxAreaEntered;
-        attackHitbox.Monitoring = false;
 
-        GD.Print($"Enemy ready. Player found: {player != null}");
+        EnemyManager manager =
+            GetTree()
+            .GetFirstNodeInGroup("enemy_manager")
+            as EnemyManager;
+
+
+        manager?.Register(this);
     }
 
-    public override void _PhysicsProcess(double delta)
+
+
+    public override void _PhysicsProcess(
+        double delta)
     {
-        float dt = (float)delta;
-
-        switch (state)
-        {
-            case EnemyState.Idle:
-                UpdateIdle();
-                break;
-
-            case EnemyState.Telegraph:
-                UpdateTelegraph(dt);
-                break;
-
-            case EnemyState.Attack:
-                UpdateAttack(dt);
-                break;
-
-            case EnemyState.Recovery:
-                UpdateRecovery(dt);
-                break;
-
-            case EnemyState.Dead:
-                UpdateDead();
-                break;
-        }
-
-        QueueRedraw();
-    }
-
-    // --------------------------------------------------
-    // IDLE
-    // --------------------------------------------------
-
-    private void UpdateIdle()
-    {
-        Velocity = Vector2.Zero;
-
-        if (player == null)
-        {
-            player = GetTree().GetFirstNodeInGroup("player") as Node2D;
-        }
-    }
-
-    // --------------------------------------------------
-    // TELEGRAPH
-    // --------------------------------------------------
-
-    private void UpdateTelegraph(float delta)
-    {
-        Velocity = Vector2.Zero;
-
-        stateTimer -= delta;
-
-        if (stateTimer <= 0f)
-        {
-            BeginAttack();
-        }
-    }
-
-    // --------------------------------------------------
-    // ATTACK
-    // --------------------------------------------------
-
-    private void BeginAttack()
-    {
-        state = EnemyState.Attack;
-        stateTimer = attackDuration;
-
-        attackHitbox.Position = attackDirection * attackRange;
-        attackHitbox.Monitoring = true;
-
-        GD.Print("Enemy: ATTACK");
-    }
-
-    private void UpdateAttack(float delta)
-    {
-        Velocity = attackDirection * attackSpeed;
-
-        MoveAndSlide();
-
-        stateTimer -= delta;
-
-        if (stateTimer <= 0f)
-        {
-            EndAttack();
-        }
-    }
-
-    private void EndAttack()
-    {
-        Velocity = Vector2.Zero;
-
-        attackHitbox.Monitoring = false;
-        attackHitbox.Position = Vector2.Zero;
-
-        state = EnemyState.Recovery;
-        stateTimer = recoveryDuration;
-
-        GD.Print("Enemy: RECOVERY");
-    }
-
-    // --------------------------------------------------
-    // RECOVERY
-    // --------------------------------------------------
-
-    private void UpdateRecovery(float delta)
-    {
-        Velocity = Vector2.Zero;
-
-        stateTimer -= delta;
-
-        if (stateTimer <= 0f)
-        {
-            state = EnemyState.Idle;
-
-            GD.Print("Enemy: IDLE");
-        }
-    }
-
-    // --------------------------------------------------
-    // START ATTACK
-    // --------------------------------------------------
-
-    public void StartAttack()
-    {
-        if (state != EnemyState.Idle)
-        {
-            GD.Print($"Enemy cannot attack. Current state: {state}");
+        if(state ==
+            EnemyState.Dead)
             return;
-        }
 
-        if (player == null || !IsInstanceValid(player))
-        {
-            player = GetTree().GetFirstNodeInGroup("player") as Node2D;
-        }
 
-        if (player == null)
-        {
-            GD.PrintErr("Enemy cannot attack: Player not found.");
-            return;
-        }
-
-        CalculateAttackDirection();
-
-        state = EnemyState.Telegraph;
-        stateTimer = telegraphDuration;
-
-        if (telegraphSound != null)
-        {
-            telegraphSound.Play();
-        }
-
-        GD.Print("Enemy: TELEGRAPH");
+        UpdateEnemy(
+            (float)delta);
     }
 
-    private void CalculateAttackDirection()
-    {
-        Vector2 direction = player.GlobalPosition - GlobalPosition;
 
-        if (direction.LengthSquared() <= 0.001f)
+
+    protected abstract void UpdateEnemy(
+        float delta);
+
+
+
+    protected abstract void RegisterCapabilities();
+
+
+
+    // =========================
+    // CAPABILITY
+    // =========================
+
+
+    public bool CanHandle(
+        ThreatType type)
+    {
+        foreach(
+            EnemyCapability capability
+            in capabilities)
         {
-            attackDirection = Vector2.Right;
-            return;
+            if(capability.Type == type)
+                return true;
         }
 
-        attackDirection = direction.Normalized();
+
+        return false;
     }
 
-    // --------------------------------------------------
-    // HIT PLAYER
-    // --------------------------------------------------
 
-    private void OnAttackHitboxAreaEntered(Area2D area)
+
+    public virtual bool IsAvailable()
     {
-        if (state != EnemyState.Attack)
-        {
-            return;
-        }
-
-        if (!area.IsInGroup("player_hurtbox"))
-        {
-            return;
-        }
-
-        GD.Print("ENEMY HIT PLAYER");
-
-        if (player is Player playerScript)
-        {
-            playerScript.TakeDamage(1);
-        }
+        return
+            state == EnemyState.Idle &&
+            reservedThreat == null;
     }
 
-    // --------------------------------------------------
-    // TAKE DAMAGE
-    // --------------------------------------------------
 
-    public void TakeDamage(int damage)
+    public bool TryGetCandidateScore(
+        ThreatRequest request,
+        CombatClock clock,
+        out float score)
     {
-        if (state == EnemyState.Dead)
-        {
-            return;
-        }
+        score = float.MinValue;
 
-        if (damage <= 0)
-        {
-            return;
-        }
+        if(request == null || clock == null || !IsAvailable())
+            return false;
 
-        hp -= damage;
+        EnemyCapability capability = GetCapability(request.Type);
 
-        GD.Print($"Enemy HP: {hp}/{maxHp}");
+        if(capability == null || capability.ApproachSpeed <= 0f)
+            return false;
 
-        OnDamaged();
+        float distance = request.Target == null
+            ? 0f
+            : GlobalPosition.DistanceTo(request.Target.GlobalPosition);
 
-        if (hp <= 0)
-        {
-            Die();
-        }
+        float requiredTime =
+            distance / capability.ApproachSpeed +
+            capability.PreparationTime;
+
+        float remainingTime = request.ImpactTime - clock.Time;
+
+        if(requiredTime > remainingTime)
+            return false;
+
+        float timingSlack = remainingTime - requiredTime;
+
+        score =
+            1000f -
+            distance * 0.1f -
+            timingSlack * 0.01f;
+
+        return true;
     }
 
-    private void OnDamaged()
+
+    public bool TryReserveThreat(ThreatRequest request)
     {
-        // Sau này có thể thêm:
-        // - hit flash
-        // - hit sound
-        // - hit VFX
-        // - knockback
+        if(request == null || !IsAvailable())
+            return false;
+
+        reservedThreat = request;
+        return true;
     }
 
-    // --------------------------------------------------
-    // DEATH
-    // --------------------------------------------------
 
-    private void Die()
+    public void ReleaseReservation(ThreatRequest request)
     {
-        if (state == EnemyState.Dead)
+        if(reservedThreat == request && currentThreat == null)
+            reservedThreat = null;
+    }
+
+
+
+    public EnemyCapability GetCapability(
+        ThreatType type)
+    {
+        foreach(
+            EnemyCapability capability
+            in capabilities)
         {
-            return;
+            if(capability.Type == type)
+                return capability;
         }
 
-        state = EnemyState.Dead;
 
-        Velocity = Vector2.Zero;
+        return null;
+    }
 
-        attackHitbox.Monitoring = false;
 
-        GD.Print("ENEMY DEAD");
+
+    // =========================
+    // THREAT
+    // =========================
+
+
+    public virtual bool ReceiveThreat(
+        ThreatRequest request)
+    {
+        if(request == null || reservedThreat != request ||
+           !CanHandle(request.Type) ||
+           !request.BeginExecution(this))
+            return false;
+
+
+        currentThreat =
+            request;
+
+
+        ChangeState(
+            EnemyState.Planning);
+
+
+        GD.Print(
+            $"{Name}: Threat received {request.Type}");
+
+        return true;
+    }
+
+
+
+    protected void ChangeState(
+        EnemyState newState)
+    {
+        state = newState;
+
+
+        GD.Print(
+            $"{Name}: {state}");
+    }
+
+
+
+    public virtual void Kill()
+    {
+        ResolveCurrentThreat(
+            ThreatState.Interrupted,
+            "Actor was destroyed");
+
+        state =
+            EnemyState.Dead;
+
 
         QueueFree();
     }
 
-    private void UpdateDead()
+
+    public virtual void TakeDamage(int damage)
     {
-        Velocity = Vector2.Zero;
+        if(state == EnemyState.Dead || damage <= 0)
+            return;
+
+        Health -= damage;
+
+        if(Health <= 0)
+            Kill();
     }
 
-    // --------------------------------------------------
-    // DEBUG VISUAL
-    // --------------------------------------------------
 
-    public override void _Draw()
+    protected void ResolveCurrentThreat(
+        ThreatState finalState,
+        string reason)
     {
-        if (state != EnemyState.Telegraph)
-        {
-            return;
-        }
+        ThreatRequest threat = currentThreat ?? reservedThreat;
 
-        float progress = 1f - (stateTimer / telegraphDuration);
+        currentThreat = null;
+        reservedThreat = null;
 
-        DrawLine(
-            Vector2.Zero,
-            attackDirection * 80f,
-            Colors.Red,
-            4f
-        );
-
-        DrawCircle(
-            attackDirection * 80f,
-            6f,
-            Colors.Red
-        );
+        threat?.Resolve(finalState, reason);
     }
 }

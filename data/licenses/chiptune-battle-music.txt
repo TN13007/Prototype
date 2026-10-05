@@ -1,0 +1,8 @@
+Asset: Chiptune Battle Music (battle_music_01-loop.ogg)
+Author: pmiller
+Source: https://opengameart.org/content/chiptune-battle-music
+License: CC0 1.0 Universal
+Downloaded: 2026-10-05
+
+The source page states that this loop is free to use without attribution.
+This file is retained so the prototype's asset provenance remains clear.

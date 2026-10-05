@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cxgnjk63yygny"]
 
-[ext_resource type="Script" uid="uid://b5o0jjxvl4bsn" path="res://scripts/enemy/Enemy.cs" id="1_4a83h"]
+[ext_resource type="Script" uid="uid://dseancklgny0a" path="res://scripts/enemy/ChaserEnemy.cs" id="1_a3pup"]
 [ext_resource type="AudioStream" uid="uid://n6vymwbsx420" path="res://data/sounds/freesound_community-bicycle-bell-105044.mp3" id="2_a3pup"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_rbs5v"]
@@ -13,7 +13,7 @@ size = Vector2(50, 30)
 size = Vector2(32, 32)
 
 [node name="Enemy" type="CharacterBody2D" unique_id=981061532]
-script = ExtResource("1_4a83h")
+script = ExtResource("1_a3pup")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1808961434]
 shape = SubResource("CircleShape2D_rbs5v")

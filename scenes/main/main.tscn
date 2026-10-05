@@ -1,60 +1,93 @@
 [gd_scene format=3 uid="uid://j68a0qk11qt3"]
 
-[ext_resource type="PackedScene" uid="uid://b57hgcl5pg74n" path="res://scenes/player/player.tscn" id="1_iuonh"]
-[ext_resource type="PackedScene" uid="uid://cxgnjk63yygny" path="res://scenes/enemy/enemy.tscn" id="2_k2fmo"]
-[ext_resource type="Script" uid="uid://eqqkwh7qkt6n" path="res://scripts/CombatDirector.cs" id="3_k2fmo"]
+[ext_resource type="PackedScene" uid="uid://b57hgcl5pg74n" path="res://scenes/player/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" uid="uid://cwtdilmqqekh3" path="res://scenes/enemy/chaser_slash_enemy.tscn" id="2_chaser"]
+[ext_resource type="Script" uid="uid://mlvcj4aa5v4s" path="res://scripts/enemy/EnemyManager.cs" id="3_manager"]
+[ext_resource type="Script" uid="uid://c4lbjojnkus1i" path="res://scripts/Director/ThreatDispatcher.cs" id="4_dispatcher"]
+[ext_resource type="Script" uid="uid://151gsba6s81l" path="res://scripts/Director/CombatDirector.cs" id="5_director"]
+[ext_resource type="Script" uid="uid://dypkpib8yss8x" path="res://scripts/Data/EncounterController.cs" id="6_encounter"]
+[ext_resource type="Script" uid="uid://bkggt1nerg3rx" path="res://scripts/CombatClock.cs" id="7_clock"]
+[ext_resource type="Script" uid="uid://bffb37j2k5hco" path="res://scripts/World/WorldController.cs" id="8_world"]
+[ext_resource type="Script" uid="uid://bklndn0hw08mc" path="res://scripts/World/SpawnSlot.cs" id="9_slot"]
+[ext_resource type="Script" uid="uid://cdgk4lb8krhxt" path="res://scripts/Music/MusicDirector.cs" id="10_music"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_rbs5v"]
+[sub_resource type="RectangleShape2D" id="top_bottom"]
 size = Vector2(1152, 32)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_xh81e"]
-size = Vector2(1152, 32)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_sqsr3"]
+[sub_resource type="RectangleShape2D" id="left_right"]
 size = Vector2(32, 648)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_vedpg"]
-size = Vector2(32, 648)
+[node name="Main" type="Node2D" unique_id=1860606167]
 
-[node name="Main" type="Node2D" unique_id=798613415]
+[node name="Arena" type="Node2D" parent="." unique_id=1765976326]
 
-[node name="Arena" type="StaticBody2D" parent="." unique_id=874272201]
+[node name="TopWall" type="StaticBody2D" parent="Arena" unique_id=436002389]
 
-[node name="TopWall" type="StaticBody2D" parent="Arena" unique_id=664883347]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/TopWall" unique_id=1321972926]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/TopWall" unique_id=129280004]
 position = Vector2(576, 16)
-shape = SubResource("RectangleShape2D_rbs5v")
+shape = SubResource("top_bottom")
 
-[node name="BottomWall" type="StaticBody2D" parent="Arena" unique_id=980297138]
+[node name="BottomWall" type="StaticBody2D" parent="Arena" unique_id=1656328881]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/BottomWall" unique_id=459726466]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/BottomWall" unique_id=20362086]
 position = Vector2(576, 632)
-shape = SubResource("RectangleShape2D_xh81e")
+shape = SubResource("top_bottom")
 
-[node name="LeftWall" type="StaticBody2D" parent="Arena" unique_id=2099681699]
+[node name="LeftWall" type="StaticBody2D" parent="Arena" unique_id=562941202]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/LeftWall" unique_id=971331929]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/LeftWall" unique_id=1309770353]
 position = Vector2(16, 324)
-shape = SubResource("RectangleShape2D_sqsr3")
+shape = SubResource("left_right")
 
-[node name="RightWall" type="StaticBody2D" parent="Arena" unique_id=581739874]
+[node name="RightWall" type="StaticBody2D" parent="Arena" unique_id=1541347455]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/RightWall" unique_id=1179849449]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/RightWall" unique_id=1137414520]
 position = Vector2(1136, 324)
-shape = SubResource("RectangleShape2D_vedpg")
+shape = SubResource("left_right")
 
-[node name="Player" parent="." unique_id=1812092413 groups=["player", "player_hurtbox"] instance=ExtResource("1_iuonh")]
+[node name="World" type="Node2D" parent="." unique_id=2088826563]
+script = ExtResource("8_world")
+
+[node name="SpawnWest" type="Marker2D" parent="World" unique_id=187303359]
+script = ExtResource("9_slot")
+SlotId = "spawn_west"
+
+[node name="SpawnSouth" type="Marker2D" parent="World" unique_id=271304224]
+script = ExtResource("9_slot")
+SlotId = "spawn_south"
+
+[node name="SpawnEast" type="Marker2D" parent="World" unique_id=2140588015]
+script = ExtResource("9_slot")
+SlotId = "spawn_east"
+
+[node name="Player" parent="." unique_id=1433305238 groups=["player", "player_hurtbox"] instance=ExtResource("1_player")]
 position = Vector2(576, 324)
 
-[node name="CombatDirector" type="Node" parent="." unique_id=1806689932]
-script = ExtResource("3_k2fmo")
+[node name="CombatClock" type="Node" parent="." unique_id=1890608694]
+script = ExtResource("7_clock")
 
-[node name="Enemy2" parent="." unique_id=54506170 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
-position = Vector2(313, 453)
+[node name="MusicDirector" type="Node" parent="." unique_id=193909689]
+script = ExtResource("10_music")
 
-[node name="Enemy3" parent="." unique_id=1152471905 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
-position = Vector2(688, 458)
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="MusicDirector" unique_id=1420508369]
 
-[node name="Enemy" parent="." unique_id=981061532 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_k2fmo")]
-position = Vector2(800, 324)
+[node name="EnemyManager" type="Node" parent="." unique_id=619246259]
+script = ExtResource("3_manager")
+
+[node name="ThreatDispatcher" type="Node" parent="." unique_id=1867988866]
+script = ExtResource("4_dispatcher")
+
+[node name="CombatDirector" type="Node" parent="." unique_id=1332620489]
+script = ExtResource("5_director")
+
+[node name="EncounterController" type="Node" parent="." unique_id=428672460]
+script = ExtResource("6_encounter")
+
+[node name="ChaserSlashEnemy" parent="." unique_id=2013963910 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_chaser")]
+position = Vector2(223, 288)
+
+[node name="ChaserSlashEnemy2" parent="." unique_id=2025024970 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_chaser")]
+position = Vector2(320, 469)
+
+[node name="ChaserSlashEnemy3" parent="." unique_id=367499041 groups=["enemy", "enemy_hurtbox"] instance=ExtResource("2_chaser")]
+position = Vector2(615, 474)
