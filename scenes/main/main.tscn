@@ -21,23 +21,11 @@ size = Vector2(32, 648)
 
 [node name="Arena" type="Node2D" parent="." unique_id=1765976326]
 
-[node name="TopWall" type="StaticBody2D" parent="Arena" unique_id=436002389]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/TopWall" unique_id=129280004]
-position = Vector2(576, 16)
-shape = SubResource("top_bottom")
-
 [node name="BottomWall" type="StaticBody2D" parent="Arena" unique_id=1656328881]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/BottomWall" unique_id=20362086]
 position = Vector2(576, 632)
 shape = SubResource("top_bottom")
-
-[node name="LeftWall" type="StaticBody2D" parent="Arena" unique_id=562941202]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Arena/LeftWall" unique_id=1309770353]
-position = Vector2(16, 324)
-shape = SubResource("left_right")
 
 [node name="RightWall" type="StaticBody2D" parent="Arena" unique_id=1541347455]
 

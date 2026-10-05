@@ -13,6 +13,7 @@ size = Vector2(32, 32)
 size = Vector2(50, 30)
 
 [node name="ChaserSlashEnemy" type="CharacterBody2D" unique_id=1470428667]
+collision_layer = 2
 script = ExtResource("1_2lbef")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1021640275]
