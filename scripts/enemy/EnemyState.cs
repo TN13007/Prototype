@@ -1,16 +1,10 @@
 public enum EnemyState
 {
-    Idle,
-
-    Planning,
-
-    Moving,
-
+    Approaching,
+    WaitingForTurn,
     Telegraph,
-
-    Executing,
-
+    Attacking,
     Recovery,
-
+    Stunned,
     Dead
 }

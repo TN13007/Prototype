@@ -1,243 +1,87 @@
 using Godot;
-using System.Collections.Generic;
 
-
+/// <summary>
+/// Encounter lifecycle only. It does not schedule attacks; CombatCoordinator does that at runtime.
+/// </summary>
 public partial class CombatDirector : Node
 {
-    private EncounterTimeline timeline;
-
+    private EnemyManager enemyManager;
+    private CombatCoordinator coordinator;
     private CombatClock clock;
-
-    private ThreatDispatcher dispatcher;
-
-    private Node2D player;
-
-    private EncounterState state =
-        EncounterState.Finished;
-
-    private int nextThreatId = 1;
-
-    private int plannedThreatCount;
-
-    private int resolvedThreatCount;
-
-    private bool warnedMissingDependencies;
-
+    private Player player;
+    private EncounterState state = EncounterState.Finished;
+    private bool reportedWaitForClear;
 
     public void Initialize(
-        EncounterTimeline encounter,
-        ThreatDispatcher threatDispatcher,
-        CombatClock combatClock)
+        EnemyManager manager,
+        CombatCoordinator combatCoordinator,
+        CombatClock combatClock,
+        Player controlledPlayer)
     {
-        timeline = encounter;
-        dispatcher = threatDispatcher;
+        enemyManager = manager;
+        coordinator = combatCoordinator;
         clock = combatClock;
+        player = controlledPlayer;
 
-        ResolvePlayer();
-
-        if(timeline == null ||
-           dispatcher == null ||
-           clock == null ||
-           player == null)
+        if (enemyManager == null || coordinator == null || clock == null || player == null)
         {
             GD.PushError(
-                "DIRECTOR: Cannot initialize encounter. " +
-                $"timeline: {timeline != null}, " +
-                $"dispatcher: {dispatcher != null}, " +
-                $"clock: {clock != null}, " +
-                $"player: {player != null}");
-
-            state =
-                EncounterState.Finished;
-
+                "DIRECTOR: Cannot start encounter. " +
+                $"manager={enemyManager != null}, coordinator={coordinator != null}, " +
+                $"clock={clock != null}, player={player != null}");
+            state = EncounterState.Finished;
             return;
         }
 
-        PlanEncounter();
-
-        state =
-            EncounterState.Running;
-
+        reportedWaitForClear = false;
+        state = EncounterState.Running;
         GD.Print(
-            $"DIRECTOR: ENCOUNTER READY " +
-            $"({plannedThreatCount} threats)");
+            $"DIRECTOR: ENCOUNTER STARTED; active={enemyManager.ActiveEnemyCount}, " +
+            $"reserves={enemyManager.RemainingReserveCount}");
     }
 
-
-    public override void _Ready()
+    public override void _Process(double delta)
     {
-        GetTree()
-            .NodeAdded +=
-            OnTreeNodeAdded;
-
-        ResolvePlayer();
-    }
-
-
-    public override void _ExitTree()
-    {
-        if(GetTree() != null)
-        {
-            GetTree().NodeAdded -=
-                OnTreeNodeAdded;
-        }
-    }
-
-
-    private void ResolvePlayer()
-    {
-        if(player != null &&
-           IsInstanceValid(player))
+        if (state != EncounterState.Running)
             return;
 
-        Node found =
-            GetTree()
-            .GetFirstNodeInGroup("player");
-
-        if(found == null)
+        if (player == null || !IsInstanceValid(player) || player.IsDead)
         {
-            GD.PushError(
-                "DIRECTOR: No node found in group " +
-                "'player'");
-
+            Finish(false);
             return;
         }
 
-        if(found is not Node2D node2D)
-        {
-            GD.PushError(
-                "DIRECTOR: Group 'player' must be " +
-                "a Node2D");
+        if (enemyManager == null || !IsInstanceValid(enemyManager))
+            return;
 
+        if (enemyManager.ActiveEnemyCount == 0 &&
+            enemyManager.RemainingReserveCount == 0 &&
+            enemyManager.PendingSpawnCount == 0)
+        {
+            Finish(true);
             return;
         }
 
-        player = node2D;
-    }
-
-
-    private void OnTreeNodeAdded(
-        Node node)
-    {
-        if(player != null &&
-           IsInstanceValid(player))
-            return;
-
-        if(node is not Node2D node2D)
-            return;
-
-        if(!node2D.IsInGroup("player"))
-            return;
-
-        player = node2D;
-    }
-
-
-    private void PlanEncounter()
-    {
-        plannedThreatCount = 0;
-        resolvedThreatCount = 0;
-
-        foreach(BeatEvent beat in timeline.Events)
+        if (!reportedWaitForClear &&
+            enemyManager.ActiveEnemyCount == 0 &&
+            (enemyManager.RemainingReserveCount > 0 || enemyManager.PendingSpawnCount > 0))
         {
-            CreateThreat(beat);
-        }
-    }
-
-
-    private void CreateThreat(
-        BeatEvent beat)
-    {
-        ThreatRequest request =
-            new ThreatRequest(
-                nextThreatId++,
-                beat.ThreatType,
-                beat.Time,
-                player
-            );
-
-        request.Resolved +=
-            OnThreatResolved;
-
-        plannedThreatCount++;
-
-        GD.Print(
-            $"DIRECTOR: PLAN THREAT #{request.Id} " +
-            $"{beat.ThreatType} " +
-            $"impact @ {request.ImpactTime}"
-        );
-
-        dispatcher.Dispatch(
-            request);
-    }
-
-
-    public override void _Process(
-        double delta)
-    {
-        if(state ==
-           EncounterState.Finished)
-            return;
-
-        if(timeline == null ||
-           dispatcher == null ||
-           clock == null ||
-           player == null)
-        {
-            if(!warnedMissingDependencies)
-            {
-                warnedMissingDependencies = true;
-
-                GD.PushWarning(
-                    "DIRECTOR: Missing dependencies " +
-                    $"(timeline: {timeline != null}, " +
-                    $"dispatcher: {dispatcher != null}, " +
-                    $"clock: {clock != null}, " +
-                    $"player: {player != null})");
-            }
-
-            return;
+            reportedWaitForClear = true;
+            GD.Print("DIRECTOR: No active enemies; waiting for the final reserve spawn");
         }
 
-        if(plannedThreatCount == 0)
-        {
-            Finish();
-            return;
-        }
-
-        if(resolvedThreatCount >=
-           plannedThreatCount)
-        {
-            Finish();
-        }
+        if (enemyManager.ActiveEnemyCount > 0)
+            reportedWaitForClear = false;
     }
 
-
-    private void OnThreatResolved(
-        ThreatRequest request,
-        ThreatResolution resolution)
+    private void Finish(bool victory)
     {
-        resolvedThreatCount++;
-
-        GD.Print(
-            $"DIRECTOR: THREAT #{request.Id} " +
-            $"{resolution.State} " +
-            $"({resolution.Reason}) " +
-            $"[{resolvedThreatCount}/{plannedThreatCount}]"
-        );
-    }
-
-
-    private void Finish()
-    {
-        if(state ==
-           EncounterState.Finished)
+        if (state == EncounterState.Finished)
             return;
 
-        state =
-            EncounterState.Finished;
-
-        GD.Print(
-            "DIRECTOR: ENCOUNTER END");
+        state = EncounterState.Finished;
+        coordinator?.StopCombat();
+        clock?.Stop();
+        GD.Print(victory ? "DIRECTOR: ENCOUNTER CLEAR" : "DIRECTOR: PLAYER DEFEATED");
     }
 }

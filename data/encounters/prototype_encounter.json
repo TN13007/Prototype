@@ -1,7 +1,9 @@
 {
   "id": "prototype_choreography",
   "worldId": "prototype_arena",
-  "musicPhraseIds": ["chiptune_battle_loop"],
+  "musicPhraseIds": [
+    "chiptune_battle_loop"
+  ],
   "sections": [
     {
       "id": "intro",
@@ -9,7 +11,7 @@
       "barCount": 2,
       "intensity": 1,
       "threatType": "Melee",
-      "beatsBetweenThreats": 0,
+      "beatsBetweenThreats": 4,
       "leadTime": 1.0
     },
     {

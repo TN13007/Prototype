@@ -13,6 +13,8 @@ size = Vector2(32, 32)
 size = Vector2(60, 60)
 
 [node name="Player" type="CharacterBody2D" unique_id=1812092413]
+collision_layer = 1
+collision_mask = 3
 script = ExtResource("1_8afob")
 DebugLogs = true
 
@@ -24,11 +26,15 @@ polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
 uv = PackedVector2Array(-27.014008, -14.799995, -27.014008, -14.799995, 16.985992, -14.799995, 16.985992, 17.199997, -27.813995, 17.199997)
 
 [node name="Hurtbox" type="Area2D" parent="." unique_id=928365173 groups=["player_hurtbox"]]
+collision_layer = 8
+collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox" unique_id=741564713]
 shape = SubResource("RectangleShape2D_rbs5v")
 
 [node name="AttackHitbox" type="Area2D" parent="." unique_id=371309048]
+collision_layer = 16
+collision_mask = 4
 monitoring = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox" unique_id=1009826854]

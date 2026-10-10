@@ -3,494 +3,294 @@ using Godot;
 public partial class ChaserEnemy : Enemy
 {
     [ExportGroup("Movement")]
-    [Export]
-    private float runSpeed = 300f;
+    [Export] private float runSpeed = 300f;
+    [Export] private float walkSpeed = 110f;
+    [Export] private float attackRange = 66f;
+    [Export] private float runDistance = 220f;
+    [Export] private float gravity = 1400f;
 
-    [Export]
-    private float walkSpeed = 110f;
-
-    [Export]
-    private float preferredDistance = 80f;
-
-    [Export]
-    private float positionTolerance = 12f;
-
-    [Export]
-    private float runDistance = 220f;
-
-    [Export]
-    private float gravity = 1400f;
-
-
-    private float attackStartTime;
+    [ExportGroup("Attack")]
+    [Export] private float attackActiveDuration = 0.10f;
+    [Export] private float recoveryDuration = 0.18f;
+    [Export] private float comboPauseDuration = 0.08f;
+    [Export] private float comboTelegraphLeadTime = 0.30f;
+    [Export] private int minimumComboHits = 1;
+    [Export] private int maximumComboHits = 2;
 
     private CombatClock clock;
+    private AudioStreamPlayer2D telegraphSound;
+    private Polygon2D bodyVisual;
+    private Color normalColor = Colors.White;
 
-    private EnemyPlanner planner =
-        new EnemyPlanner();
+    private float impactTime;
+    private float stateTimer;
+    private float facingDirection = 1f;
+    private int comboHitCount;
+    private int completedComboHits;
+    private bool recoveringBetweenComboHits;
 
-    private Node2D player;
-
-
-    protected override void RegisterCapabilities()
+    public override bool CanReceiveAttackTurn
     {
-        capabilities.Add(
-            new EnemyCapability(
-                ThreatType.Melee,
-                0.5f,
-                preferredDistance,
-                runSpeed
-            )
-        );
-    }
-
-
-    public override float GetApproachDistance(
-        ThreatRequest request,
-        EnemyCapability capability)
-    {
-        if(request == null ||
-           capability == null ||
-           request.Target == null)
+        get
         {
-            return 0f;
+            if (state != EnemyState.WaitingForTurn || player == null || player.IsDead)
+                return false;
+
+            return Mathf.Abs(player.GlobalPosition.X - GlobalPosition.X) <= attackRange + 8f;
         }
-
-        float horizontalDistance =
-            Mathf.Abs(
-                request.Target.GlobalPosition.X -
-                GlobalPosition.X);
-
-        return Mathf.Max(
-            0f,
-            horizontalDistance -
-            capability.AttackRange);
     }
-
 
     public override void _Ready()
     {
         base._Ready();
 
-        clock =
-            GetTree()
-            .GetFirstNodeInGroup("combat_clock")
-            as CombatClock;
-
-        player =
-            GetTree()
-            .GetFirstNodeInGroup("player")
-            as Node2D;
+        clock = GetTree().GetFirstNodeInGroup("combat_clock") as CombatClock;
+        telegraphSound = GetNodeOrNull<AudioStreamPlayer2D>("TelegraphSound");
+        bodyVisual = GetNodeOrNull<Polygon2D>("Polygon2D");
+        if (bodyVisual != null)
+            normalColor = bodyVisual.Modulate;
     }
-
 
     protected override void UpdateEnemy(float delta)
     {
         ApplyGravity(delta);
 
+        if (player == null || player.IsDead)
+        {
+            Velocity = new Vector2(0f, Velocity.Y);
+            EndAttackHitbox();
+            return;
+        }
+
         switch (state)
         {
-            case EnemyState.Idle:
-                MaintainPosition();
+            case EnemyState.Approaching:
+                ApproachPlayer();
                 break;
 
-            case EnemyState.Planning:
-                Plan();
-                break;
-
-            case EnemyState.Moving:
-                MoveToTarget();
+            case EnemyState.WaitingForTurn:
+                WaitForTurn();
                 break;
 
             case EnemyState.Telegraph:
-                Telegraph();
+                Velocity = new Vector2(0f, Velocity.Y);
+                UpdateTelegraph();
                 break;
 
-            case EnemyState.Executing:
-                ExecuteAttack();
+            case EnemyState.Attacking:
+                Velocity = new Vector2(0f, Velocity.Y);
+                UpdateAttack(delta);
                 break;
 
             case EnemyState.Recovery:
-                Recover();
+                Velocity = new Vector2(0f, Velocity.Y);
+                UpdateRecovery(delta);
+                break;
+
+            case EnemyState.Stunned:
+                Velocity = new Vector2(Mathf.MoveToward(Velocity.X, 0f, 900f * delta), Velocity.Y);
+                break;
+
+            case EnemyState.Dead:
+                Velocity = Vector2.Zero;
                 break;
         }
-
-        MoveAndSlide();
     }
 
+    protected override void OnAttackTurnGranted(float firstImpactTime)
+    {
+        minimumComboHits = Mathf.Max(1, minimumComboHits);
+        maximumComboHits = Mathf.Max(minimumComboHits, maximumComboHits);
+
+        comboHitCount = (int)GD.RandRange(minimumComboHits, maximumComboHits);
+        completedComboHits = 0;
+        recoveringBetweenComboHits = false;
+        ScheduleTelegraph(firstImpactTime);
+    }
+
+    protected override void OnStunStarted()
+    {
+        RestoreVisual();
+        Velocity = new Vector2(0f, Velocity.Y);
+    }
+
+    protected override void OnStunEnded()
+    {
+        RestoreVisual();
+    }
+
+    protected override void OnDeathStarted()
+    {
+        RestoreVisual();
+        Velocity = Vector2.Zero;
+    }
+
+    public override void _Draw()
+    {
+        if (state != EnemyState.Telegraph)
+            return;
+
+        // Telegraph direction: a bright line points toward the intended strike lane.
+        DrawLine(
+            Vector2.Zero,
+            new Vector2(facingDirection * 66f, 0f),
+            new Color(1f, 0.20f, 0.16f, 0.95f),
+            4f,
+            true);
+
+        DrawCircle(
+            new Vector2(facingDirection * 66f, 0f),
+            5f,
+            new Color(1f, 0.32f, 0.20f, 1f));
+    }
+
+    private void ApproachPlayer()
+    {
+        float horizontalDistance = player.GlobalPosition.X - GlobalPosition.X;
+        float absoluteDistance = Mathf.Abs(horizontalDistance);
+
+        if (absoluteDistance <= attackRange)
+        {
+            Velocity = new Vector2(0f, Velocity.Y);
+            RequestAttackTurn();
+            return;
+        }
+
+        facingDirection = Mathf.Sign(horizontalDistance);
+        if (Mathf.IsZeroApprox(facingDirection))
+            facingDirection = 1f;
+
+        float speed = absoluteDistance > runDistance ? runSpeed : walkSpeed;
+        Velocity = new Vector2(facingDirection * speed, Velocity.Y);
+    }
+
+    private void WaitForTurn()
+    {
+        float horizontalDistance = player.GlobalPosition.X - GlobalPosition.X;
+        float absoluteDistance = Mathf.Abs(horizontalDistance);
+
+        if (absoluteDistance > attackRange + 8f)
+        {
+            CancelAttackRequest();
+            ApproachPlayer();
+            return;
+        }
+
+        Velocity = new Vector2(0f, Velocity.Y);
+        facingDirection = Mathf.Sign(horizontalDistance);
+        if (Mathf.IsZeroApprox(facingDirection))
+            facingDirection = 1f;
+    }
+
+    private void ScheduleTelegraph(float targetImpactTime)
+    {
+        if (state == EnemyState.Dead || player == null || player.IsDead)
+        {
+            ReleaseAttackTurn();
+            return;
+        }
+
+        float horizontalDistance = player.GlobalPosition.X - GlobalPosition.X;
+        facingDirection = Mathf.Sign(horizontalDistance);
+        if (Mathf.IsZeroApprox(facingDirection))
+            facingDirection = 1f;
+
+        impactTime = targetImpactTime;
+        stateTimer = 0f;
+        ChangeState(EnemyState.Telegraph);
+
+        if (bodyVisual != null)
+            bodyVisual.Modulate = new Color(1f, 0.28f, 0.24f, 1f);
+
+        if (telegraphSound != null)
+            telegraphSound.Play();
+
+        QueueRedraw();
+        GD.Print($"{Name}: TELEGRAPH; impact @ {impactTime:0.000}");
+    }
+
+    private void UpdateTelegraph()
+    {
+        if (clock == null)
+        {
+            EndAttackTurnAsFailed("Combat clock unavailable");
+            return;
+        }
+
+        if (clock.Time < impactTime)
+            return;
+
+        RestoreVisual();
+        ChangeState(EnemyState.Attacking);
+        stateTimer = attackActiveDuration;
+        BeginAttackHitbox(facingDirection);
+        GD.Print($"{Name}: ATTACK IMPACT");
+    }
+
+    private void UpdateAttack(float delta)
+    {
+        stateTimer -= delta;
+        if (stateTimer > 0f)
+            return;
+
+        EndAttackHitbox();
+        completedComboHits++;
+
+        if (!ContactedPlayerThisStrike)
+            GD.Print($"{Name}: ATTACK MISSED");
+
+        recoveringBetweenComboHits = completedComboHits < comboHitCount;
+        stateTimer = recoveringBetweenComboHits ? comboPauseDuration : recoveryDuration;
+        ChangeState(EnemyState.Recovery);
+    }
+
+    private void UpdateRecovery(float delta)
+    {
+        stateTimer -= delta;
+        if (stateTimer > 0f)
+            return;
+
+        if (recoveringBetweenComboHits)
+        {
+            float nextImpact = coordinator != null
+                ? coordinator.GetNextImpactTime(comboTelegraphLeadTime)
+                : (clock != null ? clock.Time + comboTelegraphLeadTime : 0f);
+
+            ScheduleTelegraph(nextImpact);
+            return;
+        }
+
+        RestoreVisual();
+        ChangeState(EnemyState.Approaching);
+        ReleaseAttackTurn();
+    }
+
+    private void EndAttackTurnAsFailed(string reason)
+    {
+        EndAttackHitbox();
+        RestoreVisual();
+        GD.PushWarning($"{Name}: attack turn aborted: {reason}");
+        ChangeState(EnemyState.Approaching);
+        ReleaseAttackTurn();
+    }
+
+    private void RestoreVisual()
+    {
+        if (bodyVisual != null)
+            bodyVisual.Modulate = normalColor;
+
+        QueueRedraw();
+    }
 
     private void ApplyGravity(float delta)
     {
         if (IsOnFloor())
         {
             if (Velocity.Y > 0f)
-            {
-                Velocity = new Vector2(
-                    Velocity.X,
-                    0f
-                );
-            }
-
+                Velocity = new Vector2(Velocity.X, 0f);
             return;
         }
 
-        Velocity = new Vector2(
-            Velocity.X,
-            Velocity.Y + gravity * delta
-        );
-    }
-
-
-    private void MaintainPosition()
-    {
-        if (player == null)
-        {
-            Velocity = new Vector2(
-                0f,
-                Velocity.Y
-            );
-
-            return;
-        }
-
-
-        float horizontalDistance =
-            player.GlobalPosition.X -
-            GlobalPosition.X;
-
-        float absoluteDistance =
-            Mathf.Abs(horizontalDistance);
-
-
-        /*
-         * Player quá xa.
-         * Chạy nhanh để nhanh chóng tiến vào vùng chiến đấu.
-         */
-        if (absoluteDistance >
-            preferredDistance + runDistance)
-        {
-            float direction =
-                Mathf.Sign(horizontalDistance);
-
-            Velocity = new Vector2(
-                direction * runSpeed,
-                Velocity.Y
-            );
-
-            return;
-        }
-
-
-        /*
-         * Player ở xa vùng đứng lý tưởng.
-         * Đi bộ để điều chỉnh vị trí.
-         */
-        if (absoluteDistance >
-            preferredDistance + positionTolerance)
-        {
-            float direction =
-                Mathf.Sign(horizontalDistance);
-
-            Velocity = new Vector2(
-                direction * walkSpeed,
-                Velocity.Y
-            );
-
-            return;
-        }
-
-
-        /*
-         * Enemy đang quá gần player.
-         * Đi bộ lùi để lấy lại khoảng cách.
-         */
-        if (absoluteDistance <
-            preferredDistance - positionTolerance)
-        {
-            float direction =
-                -Mathf.Sign(horizontalDistance);
-
-            Velocity = new Vector2(
-                direction * walkSpeed,
-                Velocity.Y
-            );
-
-            return;
-        }
-
-
-        /*
-         * Đã nằm trong vùng khoảng cách lý tưởng.
-         * Không di chuyển theo X.
-         *
-         * Velocity.Y vẫn được giữ lại
-         * để gravity tiếp tục hoạt động.
-         */
-        Velocity = new Vector2(
-            0f,
-            Velocity.Y
-        );
-    }
-
-
-    private void Plan()
-    {
-        if (clock == null ||
-            currentThreat == null)
-        {
-            ResolveCurrentThreat(
-                ThreatState.Failed,
-                "Combat clock or threat is unavailable"
-            );
-
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        attackStartTime =
-            planner.CalculateStartTime(
-                this,
-                currentThreat,
-                runSpeed
-            );
-
-
-        if (attackStartTime >
-            currentThreat.ImpactTime)
-        {
-            ResolveCurrentThreat(
-                ThreatState.Failed,
-                "Cannot reach target before impact"
-            );
-
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        ChangeState(
-            EnemyState.Moving
-        );
-
-
-        GD.Print(
-            $"{Name}: attack starts at {attackStartTime}"
-        );
-    }
-
-
-    private void MoveToTarget()
-    {
-        if (currentThreat == null ||
-            currentThreat.Target == null)
-        {
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        if (clock == null)
-        {
-            ResolveCurrentThreat(
-                ThreatState.Failed,
-                "Combat clock is unavailable"
-            );
-
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        /*
-         * Chưa tới thời điểm bắt đầu di chuyển.
-         * Đứng yên theo X nhưng vẫn chịu gravity.
-         */
-        if (clock.Time < attackStartTime)
-        {
-            Velocity = new Vector2(
-                0f,
-                Velocity.Y
-            );
-
-            return;
-        }
-
-
-        float horizontalDistance =
-            currentThreat.Target.GlobalPosition.X -
-            GlobalPosition.X;
-
-        float absoluteDistance =
-            Mathf.Abs(horizontalDistance);
-
-
-        EnemyCapability capability =
-            GetCapability(
-                currentThreat.Type
-            );
-
-
-        float remainingTime =
-            currentThreat.ImpactTime -
-            clock.Time;
-
-
-        if (remainingTime < -0.1f)
-        {
-            ResolveCurrentThreat(
-                ThreatState.Failed,
-                "Missed impact time"
-            );
-
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        /*
-         * Đã tới khoảng đánh.
-         * Dừng theo X và chờ đúng beat.
-         */
-        if (absoluteDistance <=
-            capability.AttackRange &&
-            remainingTime <=
-            capability.PreparationTime)
-        {
-            Velocity = new Vector2(
-                0f,
-                Velocity.Y
-            );
-
-            ChangeState(
-                EnemyState.Telegraph
-            );
-
-            return;
-        }
-
-
-        /*
-         * Combat movement:
-         * chỉ chạy theo trục X.
-         */
-        float direction =
-            Mathf.Sign(horizontalDistance);
-
-        Velocity = new Vector2(
-            direction * runSpeed,
-            Velocity.Y
-        );
-    }
-
-
-    private void Telegraph()
-    {
-        Velocity = new Vector2(
-            0f,
-            Velocity.Y
-        );
-
-
-        if (clock == null ||
-            currentThreat == null)
-        {
-            ResolveCurrentThreat(
-                ThreatState.Failed,
-                "Combat clock or threat is unavailable"
-            );
-
-            ChangeState(
-                EnemyState.Idle
-            );
-
-            return;
-        }
-
-
-        if (clock.Time <
-            currentThreat.ImpactTime)
-        {
-            return;
-        }
-
-
-        GD.Print(
-            $"{Name}: TELEGRAPH"
-        );
-
-
-        ChangeState(
-            EnemyState.Executing
-        );
-    }
-
-
-    private void ExecuteAttack()
-    {
-        Velocity = new Vector2(
-            0f,
-            Velocity.Y
-        );
-
-        GD.Print(
-            $"{Name}: ATTACK IMPACT"
-        );
-
-        if (currentThreat != null &&
-            currentThreat.Target is Player player)
-        {
-            bool tookDamage =
-                player.TakeDamage(1);
-
-            if (!tookDamage)
-            {
-                GD.Print(
-                    $"{Name}: ATTACK WAS PARRIED"
-                );
-            }
-        }
-
-        ResolveCurrentThreat(
-            ThreatState.Completed,
-            "Attack reached impact time"
-        );
-
-        ChangeState(
-            EnemyState.Recovery
-        );
-    }
-
-    private void Recover()
-    {
-        Velocity = new Vector2(
-            0f,
-            Velocity.Y
-        );
-
-
-        GD.Print(
-            $"{Name}: Recovery"
-        );
-
-
-        ChangeState(
-            EnemyState.Idle
-        );
+        Velocity = new Vector2(Velocity.X, Velocity.Y + gravity * delta);
     }
 }

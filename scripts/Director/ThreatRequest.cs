@@ -1,6 +1,5 @@
 using Godot;
 
-
 public enum ThreatState
 {
     Created,
@@ -13,21 +12,20 @@ public enum ThreatState
     Cancelled
 }
 
-
 public readonly struct ThreatResolution
 {
     public ThreatState State { get; }
 
     public string Reason { get; }
 
-
-    public ThreatResolution(ThreatState state, string reason)
+    public ThreatResolution(
+        ThreatState state,
+        string reason)
     {
         State = state;
         Reason = reason;
     }
 }
-
 
 public sealed class ThreatRequest
 {
@@ -37,72 +35,86 @@ public sealed class ThreatRequest
 
     public float ImpactTime { get; }
 
+    public float LeadTime { get; }
+
     public Node2D Target { get; }
 
-    public ThreatState State { get; private set; } = ThreatState.Created;
+    public ThreatState State { get; private set; } =
+        ThreatState.Created;
 
     public Enemy AssignedEnemy { get; private set; }
 
     public ThreatResolution? Resolution { get; private set; }
 
-    public event System.Action<ThreatRequest, ThreatResolution> Resolved;
-
+    public event System.Action<ThreatRequest, ThreatResolution>
+        Resolved;
 
     public ThreatRequest(
         int id,
         ThreatType type,
         float impactTime,
+        float leadTime,
         Node2D target)
     {
         Id = id;
         Type = type;
         ImpactTime = impactTime;
+        LeadTime = Mathf.Max(leadTime, 0f);
         Target = target;
     }
 
-
     public bool BeginDispatch()
     {
-        if(State != ThreatState.Created)
+        if (State != ThreatState.Created)
             return false;
 
         State = ThreatState.Dispatching;
         return true;
     }
 
-
     public bool Reserve(Enemy enemy)
     {
-        if(State != ThreatState.Dispatching || enemy == null)
+        if (State != ThreatState.Dispatching ||
+            enemy == null)
+        {
             return false;
+        }
 
         AssignedEnemy = enemy;
         State = ThreatState.Reserved;
+
         return true;
     }
 
-
     public bool BeginExecution(Enemy enemy)
     {
-        if(State != ThreatState.Reserved || AssignedEnemy != enemy)
+        if (State != ThreatState.Reserved ||
+            AssignedEnemy != enemy)
+        {
             return false;
+        }
 
         State = ThreatState.Executing;
         return true;
     }
 
-
-    public bool Resolve(ThreatState finalState, string reason)
+    public bool Resolve(
+        ThreatState finalState,
+        string reason)
     {
-        if(!IsTerminal(finalState) || IsTerminal(State))
+        if (!IsTerminal(finalState) ||
+            IsTerminal(State))
+        {
             return false;
+        }
 
         State = finalState;
         Resolution = new ThreatResolution(finalState, reason);
+
         Resolved?.Invoke(this, Resolution.Value);
+
         return true;
     }
-
 
     public static bool IsTerminal(ThreatState state)
     {

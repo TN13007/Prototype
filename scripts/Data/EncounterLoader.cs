@@ -1,6 +1,5 @@
 using System.Linq;
 
-
 public class EncounterLoader
 {
     public EncounterTimeline Compose(
@@ -9,33 +8,50 @@ public class EncounterLoader
     {
         EncounterTimeline timeline = new();
 
-        if(encounter == null || phrase == null || phrase.Bpm <= 0f ||
-           phrase.BeatsPerBar <= 0)
+        if (encounter == null ||
+            phrase == null ||
+            phrase.Bpm <= 0f ||
+            phrase.BeatsPerBar <= 0)
         {
             return timeline;
         }
 
         float secondsPerBeat = 60f / phrase.Bpm;
 
-        foreach(EncounterSectionDefinition section in
+        foreach (EncounterSectionDefinition section in
             encounter.Sections.OrderBy(value => value.StartBar))
         {
-            if(section.BeatsBetweenThreats <= 0)
-                continue;
-
-            int firstBeat = section.StartBar * phrase.BeatsPerBar;
-            int endBeat = (section.StartBar + section.BarCount) *
-                          phrase.BeatsPerBar;
-
-            for(int beat = firstBeat;
-                beat < endBeat;
-                beat += section.BeatsBetweenThreats)
+            if (section.BeatsBetweenThreats <= 0 ||
+                section.BarCount <= 0)
             {
-                timeline.Add(new BeatEvent(
-                    beat * secondsPerBeat,
-                    section.ThreatType,
-                    section.LeadTime
-                ));
+                continue;
+            }
+
+            int firstBeat =
+                section.StartBar * phrase.BeatsPerBar;
+
+            int endBeat =
+                (section.StartBar + section.BarCount) *
+                phrase.BeatsPerBar;
+
+            for (int beat = firstBeat;
+                 beat < endBeat;
+                 beat += section.BeatsBetweenThreats)
+            {
+                float eventTime =
+                    beat * secondsPerBeat;
+
+                // Không tạo threat tại giây 0 vì chưa có lead-in.
+                if (eventTime <= 0f)
+                    continue;
+
+                timeline.Add(
+                    new BeatEvent(
+                        eventTime,
+                        section.ThreatType,
+                        section.LeadTime
+                    )
+                );
             }
         }
 

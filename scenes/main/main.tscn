@@ -3,13 +3,13 @@
 [ext_resource type="PackedScene" uid="uid://b57hgcl5pg74n" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" uid="uid://cwtdilmqqekh3" path="res://scenes/enemy/chaser_slash_enemy.tscn" id="2_chaser"]
 [ext_resource type="Script" uid="uid://mlvcj4aa5v4s" path="res://scripts/enemy/EnemyManager.cs" id="3_manager"]
-[ext_resource type="Script" uid="uid://c4lbjojnkus1i" path="res://scripts/Director/ThreatDispatcher.cs" id="4_dispatcher"]
 [ext_resource type="Script" uid="uid://151gsba6s81l" path="res://scripts/Director/CombatDirector.cs" id="5_director"]
 [ext_resource type="Script" uid="uid://dypkpib8yss8x" path="res://scripts/Data/EncounterController.cs" id="6_encounter"]
 [ext_resource type="Script" uid="uid://bkggt1nerg3rx" path="res://scripts/CombatClock.cs" id="7_clock"]
 [ext_resource type="Script" uid="uid://bffb37j2k5hco" path="res://scripts/World/WorldController.cs" id="8_world"]
 [ext_resource type="Script" uid="uid://bklndn0hw08mc" path="res://scripts/World/SpawnSlot.cs" id="9_slot"]
 [ext_resource type="Script" uid="uid://cdgk4lb8krhxt" path="res://scripts/Music/MusicDirector.cs" id="10_music"]
+[ext_resource type="Script" path="res://scripts/CombatCoordinator.cs" id="11_coordinator"]
 
 [sub_resource type="RectangleShape2D" id="top_bottom"]
 size = Vector2(1152, 32)
@@ -62,8 +62,8 @@ script = ExtResource("10_music")
 [node name="EnemyManager" type="Node" parent="." unique_id=619246259]
 script = ExtResource("3_manager")
 
-[node name="ThreatDispatcher" type="Node" parent="." unique_id=1867988866]
-script = ExtResource("4_dispatcher")
+[node name="CombatCoordinator" type="Node" parent="." unique_id=1867988880]
+script = ExtResource("11_coordinator")
 
 [node name="CombatDirector" type="Node" parent="." unique_id=1332620489]
 script = ExtResource("5_director")
