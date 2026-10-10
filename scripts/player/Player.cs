@@ -116,7 +116,7 @@ public partial class Player : CharacterBody2D
     private void DebugLog(string message)
     {
         if (DebugLogs)
-            DebugLog(message);
+            GD.Print(message);
     }
 
 
